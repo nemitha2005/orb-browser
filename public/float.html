@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Orb Float</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a1a;
+      border: 1.5px solid #7c5cfc;
+      border-radius: 14px;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      gap: 12px;
+    }
+
+    .icon {
+      font-size: 18px;
+      color: #7c5cfc;
+      flex-shrink: 0;
+    }
+
+    input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: #e8e8e8;
+      font-size: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    input::placeholder { color: #555; }
+
+    .hint {
+      font-size: 11px;
+      color: #444;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <span class="icon">◎</span>
+  <input id="input" type="text" placeholder="Quick search or URL…" autofocus spellcheck="false" />
+  <span class="hint">Esc to close</span>
+
+  <script>
+    const input = document.getElementById('input');
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const val = input.value.trim();
+        if (val) {
+          window.orb.floatNavigate(val);
+          input.value = '';
+        }
+      }
+
+      if (e.key === 'Escape') {
+        window.orb.toggleFloat();
+        input.value = '';
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      input.focus();
+      input.select();
+    });
+  </script>
+</body>
+</html>

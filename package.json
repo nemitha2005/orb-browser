@@ -1,0 +1,38 @@
+{
+  "name": "orb-browser",
+  "version": "0.1.0",
+  "description": "Orb — A focus-first open source browser",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "tsc && electronmon dist/main/index.js --dev",
+    "build:ts": "tsc",
+    "start": "electron dist/main/index.js",
+    "package:win": "npm run build:ts && electron-builder --win",
+    "package:mac": "npm run build:ts && electron-builder --mac",
+    "package:linux": "npm run build:ts && electron-builder --linux"
+  },
+  "devDependencies": {
+    "@types/electron": "^1.6.10",
+    "@types/node": "^20.11.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1",
+    "electronmon": "^2.0.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "electronmon": {
+    "patterns": ["dist/**/*", "public/**/*"],
+    "theme": "dark"
+  },
+  "build": {
+    "appId": "com.orb.browser",
+    "productName": "Orb",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "public/**/*", "assets/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
+  }
+}
