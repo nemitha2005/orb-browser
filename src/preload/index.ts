@@ -22,14 +22,20 @@ contextBridge.exposeInMainWorld('orb', {
   },
 
   onOpenUrl: (callback: (url: string) => void) => {
-    ipcRenderer.on(IPC_CHANNELS.OPEN_URL, (_event, payload: unknown) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
       const safeUrl = parseFloatNavigatePayload(payload);
       if (!safeUrl) {
         return;
       }
 
       callback(safeUrl);
-    });
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.OPEN_URL, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.OPEN_URL, handler);
+    };
   },
 
   createTab: (url?: string) => {

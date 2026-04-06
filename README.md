@@ -27,6 +27,13 @@ npm run dev
 | `npm run package:mac` | Build macOS .dmg |
 | `npm run package:linux` | Build Linux AppImage |
 
+## Renderer Structure
+
+- Renderer pages now live in `src/renderer/` and are built by electron-vite.
+- Styling uses Tailwind CSS via `src/renderer/styles/tailwind.css`.
+- Main page entry: `src/renderer/index.html` + `src/renderer/main.ts`
+- Float page entry: `src/renderer/float.html` + `src/renderer/float.ts`
+
 ## Commit Format Checker
 
 This project enforces Conventional Commits through Husky + commitlint.

@@ -1,3 +1,5 @@
+import './styles/tailwind.css';
+
 const input = document.getElementById('input') as HTMLInputElement;
 
 function submitInput(): void {

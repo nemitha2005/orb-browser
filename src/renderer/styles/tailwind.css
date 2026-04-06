@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html,
+  body {
+    @apply m-0 p-0;
+  }
+
+  #titlebar,
+  #tabbar {
+    -webkit-app-region: drag;
+  }
+
+  #navbar,
+  #tabs,
+  button,
+  input,
+  .tab,
+  .tab-close {
+    -webkit-app-region: no-drag;
+  }
+}
+
+@layer components {
+  .tab {
+    @apply [-webkit-app-region:no-drag] flex max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-orb bg-orb-surface px-2.5 py-[5px] text-xs text-orb-text-dim transition;
+  }
+
+  .tab:hover {
+    @apply bg-orb-surface-2 text-orb-text;
+  }
+
+  .tab.active {
+    @apply bg-orb-surface-2 text-orb-text;
+  }
+
+  .tab-title {
+    @apply max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+
+  .tab-close {
+    @apply rounded border-0 bg-transparent px-1 py-0.5 text-[10px] leading-none text-orb-text-dim transition;
+  }
+
+  .tab-close:hover {
+    @apply bg-white/10 text-orb-text;
+  }
+}

@@ -1,23 +1,5 @@
-interface BrowserBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface TabSnapshot {
-  id: number;
-  title: string;
-  url: string | null;
-  isLoading: boolean;
-  canGoBack: boolean;
-  canGoForward: boolean;
-}
-
-interface TabsStateSnapshot {
-  tabs: TabSnapshot[];
-  activeTabId: number | null;
-}
+import './styles/tailwind.css';
+import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc-contract';
 
 interface RendererState {
   tabs: TabSnapshot[];
@@ -40,6 +22,7 @@ const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
 
+let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
 
 function escapeHtml(input: string): string {
@@ -183,7 +166,7 @@ tabsContainer.addEventListener('click', event => {
   activateTab(Number(tabIdText));
 });
 
-window.orb.onOpenUrl(url => {
+unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
   // Float window already triggers main-process navigation; we mirror address text here.
   addressBar.value = url;
 });
@@ -232,6 +215,9 @@ window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
 
 window.addEventListener('beforeunload', () => {
+  unsubscribeOpenUrl?.();
+  unsubscribeOpenUrl = null;
+
   unsubscribeTabsState?.();
   unsubscribeTabsState = null;
 });
