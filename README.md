@@ -16,10 +16,56 @@ npm run dev
 | Command | What it does |
 |---|---|
 | `npm run dev` | Compile TS + launch with auto-reload |
+| `npm run typecheck` | Run strict TS type-check without emitting files |
+| `npm run quality` | Run production quality gate (`typecheck` + build) |
+| `npm run security:audit` | Fail if high-severity npm vulnerabilities are found |
 | `npm start` | Launch without dev tools |
 | `npm run package:win` | Build Windows installer |
 | `npm run package:mac` | Build macOS .dmg |
 | `npm run package:linux` | Build Linux AppImage |
+
+## Commit Format Checker
+
+This project enforces Conventional Commits through Husky + commitlint.
+
+Allowed examples:
+
+- `feat: add tab pinning`
+- `fix: prevent crash on empty URL`
+- `docs: update keyboard shortcuts`
+- `chore(ci): add security audit step`
+
+Invalid example:
+
+- `updated stuff`
+
+Hooks enabled:
+
+- `pre-commit`: runs `npm run typecheck`
+- `commit-msg`: validates the commit message format
+
+If hooks do not run after clone, execute:
+
+```bash
+npm run prepare
+```
+
+## Production Readiness Checklist
+
+Before shipping a production app, make sure you have:
+
+1. Build and type safety: `npm run quality` must pass in CI and locally.
+2. Security hygiene: `npm run security:audit` clean at high severity (or documented, accepted risk).
+3. Crash and error telemetry: global error capture in main and renderer with reporting.
+4. Auto-update strategy: signed update channel with rollback plan.
+5. Code signing + notarization: required for trust on Windows/macOS.
+6. Release process: versioning, changelog, release notes, and rollback runbook.
+7. Secrets handling: no secrets in source; environment-based config and rotation policy.
+8. Data/privacy policy: define what user data is collected, stored, and encrypted.
+9. Performance budget: startup time, memory ceiling, and regression checks.
+10. Testing baseline: smoke tests for startup, tab actions, navigation, and packaging.
+11. Monitoring: alerting for crash spikes, startup failures, and update failures.
+12. Dependency maintenance: regular upgrades and vulnerability triage.
 
 ## Keyboard Shortcuts
 

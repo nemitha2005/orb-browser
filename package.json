@@ -6,33 +6,56 @@
   "scripts": {
     "dev": "tsc && electronmon dist/main/index.js --dev",
     "build:ts": "tsc",
+    "typecheck": "tsc --noEmit",
+    "quality": "npm run typecheck && npm run build:ts",
+    "security:audit": "npm audit --audit-level=high",
     "start": "electron dist/main/index.js",
     "package:win": "npm run build:ts && electron-builder --win",
     "package:mac": "npm run build:ts && electron-builder --mac",
-    "package:linux": "npm run build:ts && electron-builder --linux"
+    "package:linux": "npm run build:ts && electron-builder --linux",
+    "commitlint:last": "commitlint --from HEAD~1 --to HEAD",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@types/electron": "^1.6.10",
     "@types/node": "^20.11.0",
     "electron": "^29.0.0",
     "electron-builder": "^24.9.1",
     "electronmon": "^2.0.2",
+    "husky": "^9.1.7",
     "typescript": "^5.3.3"
   },
   "dependencies": {
     "electron-store": "^8.1.0"
   },
   "electronmon": {
-    "patterns": ["dist/**/*", "public/**/*"],
+    "patterns": [
+      "dist/**/*",
+      "public/**/*"
+    ],
     "theme": "dark"
   },
   "build": {
     "appId": "com.orb.browser",
     "productName": "Orb",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "public/**/*", "assets/**/*"],
-    "win": { "target": "nsis" },
-    "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "public/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
