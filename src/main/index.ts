@@ -1,14 +1,41 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserView, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
 
-import { IPC_CHANNELS, parseFloatNavigatePayload } from '../shared/ipc';
+import {
+  IPC_CHANNELS,
+  parseBrowserBoundsPayload,
+  parseFloatNavigatePayload,
+  parseTabCreatePayload,
+  parseTabIdPayload,
+  parseTabNavigatePayload,
+} from '../shared/ipc';
+import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc';
 import { isHttpNavigationUrl } from '../shared/url';
 
 const isDev = process.argv.includes('--dev');
 
+interface ManagedTab {
+  id: number;
+  title: string;
+  url: string | null;
+  isLoading: boolean;
+  view: BrowserView;
+}
+
 let mainWindow: BrowserWindow | null = null;
 let floatWindow: BrowserWindow | null = null;
+let attachedView: BrowserView | null = null;
+let nextTabId = 1;
+let activeTabId: number | null = null;
+let tabs: ManagedTab[] = [];
+let browserBounds: BrowserBounds = {
+  x: 0,
+  y: 120,
+  width: 1200,
+  height: 680,
+};
 
+// Renderer pages should only navigate to local files (or devtools in development).
 function isTrustedAppUrl(rawUrl: string): boolean {
   try {
     const parsedUrl = new URL(rawUrl);
@@ -18,11 +45,292 @@ function isTrustedAppUrl(rawUrl: string): boolean {
   }
 }
 
-function isAppWindowContents(contentsId: number): boolean {
+function isTabContents(contentsId: number): boolean {
+  return tabs.some(tab => tab.view.webContents.id === contentsId);
+}
+
+function isWindowContents(contentsId: number): boolean {
   return (
     contentsId === mainWindow?.webContents.id ||
     contentsId === floatWindow?.webContents.id
   );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getActiveTab(): ManagedTab | undefined {
+  if (!activeTabId) {
+    return undefined;
+  }
+
+  return tabs.find(tab => tab.id === activeTabId);
+}
+
+function serializeTab(tab: ManagedTab): TabSnapshot {
+  const { webContents } = tab.view;
+  const canNavigate = tab.url !== null;
+
+  return {
+    id: tab.id,
+    title: tab.title,
+    url: tab.url,
+    isLoading: tab.isLoading,
+    canGoBack: canNavigate ? webContents.canGoBack() : false,
+    canGoForward: canNavigate ? webContents.canGoForward() : false,
+  };
+}
+
+function getTabsStateSnapshot(): TabsStateSnapshot {
+  return {
+    tabs: tabs.map(serializeTab),
+    activeTabId,
+  };
+}
+
+// The renderer is UI-only now, so all browser state flows from main through this event.
+function emitTabsState(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(IPC_CHANNELS.TABS_STATE_CHANGED, getTabsStateSnapshot());
+}
+
+function detachAttachedView(): void {
+  if (!mainWindow || !attachedView) {
+    return;
+  }
+
+  const views = mainWindow.getBrowserViews();
+  if (views.includes(attachedView)) {
+    mainWindow.removeBrowserView(attachedView);
+  }
+
+  attachedView = null;
+}
+
+function applyAttachedViewBounds(): void {
+  if (!mainWindow || !attachedView) {
+    return;
+  }
+
+  const contentSize = mainWindow.getContentSize();
+  const contentWidth = contentSize[0] ?? 1;
+  const contentHeight = contentSize[1] ?? 1;
+  const clampedX = clamp(browserBounds.x, 0, Math.max(0, contentWidth - 1));
+  const clampedY = clamp(browserBounds.y, 0, Math.max(0, contentHeight - 1));
+
+  // Width and height are constrained to remain inside the window content area.
+  const clampedWidth = clamp(browserBounds.width, 1, Math.max(1, contentWidth - clampedX));
+  const clampedHeight = clamp(browserBounds.height, 1, Math.max(1, contentHeight - clampedY));
+
+  attachedView.setBounds({
+    x: clampedX,
+    y: clampedY,
+    width: clampedWidth,
+    height: clampedHeight,
+  });
+
+  attachedView.setAutoResize({
+    width: true,
+    height: true,
+  });
+}
+
+// Switching tabs is simply detach current BrowserView and attach the next one.
+function attachActiveTabView(): void {
+  if (!mainWindow) {
+    return;
+  }
+
+  const activeTab = getActiveTab();
+  if (!activeTab) {
+    detachAttachedView();
+    return;
+  }
+
+  if (attachedView && attachedView !== activeTab.view) {
+    const currentViews = mainWindow.getBrowserViews();
+    if (currentViews.includes(attachedView)) {
+      mainWindow.removeBrowserView(attachedView);
+    }
+  }
+
+  const views = mainWindow.getBrowserViews();
+  if (!views.includes(activeTab.view)) {
+    mainWindow.addBrowserView(activeTab.view);
+  }
+
+  attachedView = activeTab.view;
+  applyAttachedViewBounds();
+}
+
+function syncTabFromContents(contentsId: number, updater: (tab: ManagedTab) => void): void {
+  const tab = tabs.find(entry => entry.view.webContents.id === contentsId);
+  if (!tab) {
+    return;
+  }
+
+  updater(tab);
+  emitTabsState();
+}
+
+function configureTabEvents(tab: ManagedTab): void {
+  const { webContents } = tab.view;
+
+  // Tabs are locked to regular web protocols for safety.
+  webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  webContents.on('will-navigate', (event, navigationUrl) => {
+    if (!isHttpNavigationUrl(navigationUrl)) {
+      event.preventDefault();
+    }
+  });
+
+  webContents.on('did-start-loading', () => {
+    syncTabFromContents(webContents.id, entry => {
+      entry.isLoading = true;
+    });
+  });
+
+  webContents.on('did-stop-loading', () => {
+    syncTabFromContents(webContents.id, entry => {
+      entry.isLoading = false;
+      entry.url = webContents.getURL() || null;
+      entry.title = webContents.getTitle() || entry.title;
+    });
+  });
+
+  webContents.on('did-navigate', (_event, navigationUrl) => {
+    syncTabFromContents(webContents.id, entry => {
+      entry.url = navigationUrl;
+    });
+  });
+
+  webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
+    syncTabFromContents(webContents.id, entry => {
+      entry.url = navigationUrl;
+    });
+  });
+
+  webContents.on('page-title-updated', event => {
+    event.preventDefault();
+    syncTabFromContents(webContents.id, entry => {
+      entry.title = webContents.getTitle() || entry.title;
+    });
+  });
+}
+
+function createManagedTab(initialUrl: string | null): ManagedTab {
+  // Every tab owns one BrowserView instance that stays alive until tab close.
+  const tabView = new BrowserView({
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
+
+  const tab: ManagedTab = {
+    id: nextTabId,
+    title: initialUrl ? 'Loading...' : 'New Tab',
+    url: initialUrl,
+    isLoading: false,
+    view: tabView,
+  };
+  nextTabId += 1;
+
+  configureTabEvents(tab);
+
+  if (initialUrl) {
+    tab.view.webContents.loadURL(initialUrl).catch(error => {
+      console.error('[main] failed to load URL', error);
+    });
+  }
+
+  tabs.push(tab);
+  return tab;
+}
+
+function setActiveTab(tabId: number): void {
+  const tabExists = tabs.some(tab => tab.id === tabId);
+  if (!tabExists) {
+    return;
+  }
+
+  activeTabId = tabId;
+  attachActiveTabView();
+  emitTabsState();
+}
+
+function createTab(initialUrl: string | null = null): ManagedTab {
+  const tab = createManagedTab(initialUrl);
+  setActiveTab(tab.id);
+  return tab;
+}
+
+function closeTab(tabId: number): void {
+  const tabIndex = tabs.findIndex(tab => tab.id === tabId);
+  if (tabIndex < 0) {
+    return;
+  }
+
+  const [tabToClose] = tabs.splice(tabIndex, 1);
+  if (!tabToClose) {
+    return;
+  }
+
+  if (attachedView === tabToClose.view) {
+    detachAttachedView();
+  }
+
+  tabToClose.view.webContents.removeAllListeners();
+
+  if (tabs.length === 0) {
+    const replacement = createManagedTab(null);
+    activeTabId = replacement.id;
+    attachActiveTabView();
+    emitTabsState();
+    return;
+  }
+
+  if (activeTabId === tabId) {
+    const nextTab = tabs[Math.min(tabIndex, tabs.length - 1)];
+    activeTabId = nextTab?.id ?? null;
+  }
+
+  attachActiveTabView();
+  emitTabsState();
+}
+
+function navigateActiveTab(rawInput: string): void {
+  const activeTab = getActiveTab();
+  if (!activeTab) {
+    createTab(rawInput);
+    return;
+  }
+
+  activeTab.url = rawInput;
+  activeTab.view.webContents.loadURL(rawInput).catch(error => {
+    console.error('[main] failed to navigate tab', error);
+  });
+
+  emitTabsState();
+}
+
+function destroyAllTabs(): void {
+  detachAttachedView();
+
+  tabs.forEach(tab => {
+    tab.view.webContents.removeAllListeners();
+  });
+
+  tabs = [];
+  activeTabId = null;
 }
 
 function configureSessionSecurity(): void {
@@ -38,9 +346,21 @@ function configureWebContentsSecurity(): void {
   app.on('web-contents-created', (_event, contents) => {
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
+    // The renderer should never be able to inject legacy <webview> tags anymore.
+    contents.on('will-attach-webview', event => {
+      event.preventDefault();
+    });
+
     contents.on('will-navigate', (event, navigationUrl) => {
-      if (isAppWindowContents(contents.id)) {
+      if (isWindowContents(contents.id)) {
         if (!isTrustedAppUrl(navigationUrl)) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (isTabContents(contents.id)) {
+        if (!isHttpNavigationUrl(navigationUrl)) {
           event.preventDefault();
         }
         return;
@@ -66,7 +386,6 @@ function createMainWindow(): void {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webviewTag: true,
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
@@ -75,11 +394,24 @@ function createMainWindow(): void {
 
   mainWindow.loadFile(path.join(__dirname, '../../public/index.html'));
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (tabs.length === 0) {
+      createTab();
+    }
+
+    emitTabsState();
+  });
+
+  mainWindow.on('resize', () => {
+    applyAttachedViewBounds();
+  });
+
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
   mainWindow.on('closed', () => {
+    destroyAllTabs();
     mainWindow = null;
   });
 }
@@ -129,7 +461,82 @@ ipcMain.handle(IPC_CHANNELS.FLOAT_NAVIGATE, (_event, payload: unknown) => {
   }
 
   floatWindow?.hide();
+  navigateActiveTab(safeUrl);
   mainWindow?.webContents.send(IPC_CHANNELS.OPEN_URL, safeUrl);
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_CREATE, (_event, payload: unknown) => {
+  const safeUrl = parseTabCreatePayload(payload);
+  const tab = createTab(safeUrl);
+  return tab.id;
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_CLOSE, (_event, payload: unknown) => {
+  const tabId = parseTabIdPayload(payload);
+  if (!tabId) {
+    return;
+  }
+
+  closeTab(tabId);
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_ACTIVATE, (_event, payload: unknown) => {
+  const tabId = parseTabIdPayload(payload);
+  if (!tabId) {
+    return;
+  }
+
+  setActiveTab(tabId);
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_NAVIGATE, (_event, payload: unknown) => {
+  const safeUrl = parseTabNavigatePayload(payload);
+  if (!safeUrl) {
+    return;
+  }
+
+  navigateActiveTab(safeUrl);
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_GO_BACK, () => {
+  const activeTab = getActiveTab();
+  if (!activeTab || !activeTab.view.webContents.canGoBack()) {
+    return;
+  }
+
+  activeTab.view.webContents.goBack();
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_GO_FORWARD, () => {
+  const activeTab = getActiveTab();
+  if (!activeTab || !activeTab.view.webContents.canGoForward()) {
+    return;
+  }
+
+  activeTab.view.webContents.goForward();
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_RELOAD, () => {
+  const activeTab = getActiveTab();
+  if (!activeTab || !activeTab.url) {
+    return;
+  }
+
+  activeTab.view.webContents.reload();
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_SET_BOUNDS, (_event, payload: unknown) => {
+  const safeBounds = parseBrowserBoundsPayload(payload);
+  if (!safeBounds) {
+    return;
+  }
+
+  browserBounds = safeBounds;
+  applyAttachedViewBounds();
+});
+
+ipcMain.handle(IPC_CHANNELS.TABS_GET_STATE, () => {
+  return getTabsStateSnapshot();
 });
 
 process.on('uncaughtException', (error) => {
@@ -156,6 +563,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    destroyAllTabs();
     app.quit();
   }
 });
