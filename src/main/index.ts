@@ -12,7 +12,8 @@ import {
 import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc';
 import { isHttpNavigationUrl } from '../shared/url';
 
-const isDev = process.argv.includes('--dev');
+const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
+const RENDERER_DIST = path.join(__dirname, '../renderer');
 
 interface ManagedTab {
   id: number;
@@ -393,7 +394,15 @@ function createMainWindow(): void {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, '../../public/index.html'));
+  if (VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(VITE_DEV_SERVER_URL).catch(error => {
+      console.error('[main] failed to load renderer dev URL', error);
+    });
+  } else {
+    mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html')).catch(error => {
+      console.error('[main] failed to load renderer index file', error);
+    });
+  }
 
   mainWindow.webContents.on('did-finish-load', () => {
     if (tabs.length === 0) {
@@ -407,7 +416,7 @@ function createMainWindow(): void {
     applyAttachedViewBounds();
   });
 
-  if (isDev) {
+  if (VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
@@ -437,7 +446,16 @@ function createFloatWindow(): void {
     },
   });
 
-  floatWindow.loadFile(path.join(__dirname, '../../public/float.html'));
+  if (VITE_DEV_SERVER_URL) {
+    const floatDevUrl = new URL('float.html', VITE_DEV_SERVER_URL).toString();
+    floatWindow.loadURL(floatDevUrl).catch(error => {
+      console.error('[main] failed to load float dev URL', error);
+    });
+  } else {
+    floatWindow.loadFile(path.join(RENDERER_DIST, 'float.html')).catch(error => {
+      console.error('[main] failed to load float renderer file', error);
+    });
+  }
 
   floatWindow.on('blur', () => {
     floatWindow?.hide();
