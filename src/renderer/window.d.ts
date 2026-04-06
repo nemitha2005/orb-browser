@@ -1,25 +1,6 @@
 export {};
 
-interface BrowserBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface TabSnapshot {
-  id: number;
-  title: string;
-  url: string | null;
-  isLoading: boolean;
-  canGoBack: boolean;
-  canGoForward: boolean;
-}
-
-interface TabsStateSnapshot {
-  tabs: TabSnapshot[];
-  activeTabId: number | null;
-}
+import type { BrowserBounds, TabsStateSnapshot } from '../shared/ipc-contract';
 
 declare global {
   interface Window {

@@ -1,23 +1,5 @@
-interface BrowserBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface TabSnapshot {
-  id: number;
-  title: string;
-  url: string | null;
-  isLoading: boolean;
-  canGoBack: boolean;
-  canGoForward: boolean;
-}
-
-interface TabsStateSnapshot {
-  tabs: TabSnapshot[];
-  activeTabId: number | null;
-}
+import './styles/tailwind.css';
+import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc-contract';
 
 interface RendererState {
   tabs: TabSnapshot[];
