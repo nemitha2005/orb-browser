@@ -31,8 +31,8 @@ export default defineConfig({
 
   // `preload` controls how the isolated bridge script is bundled.
   preload: {
-    // Externalize native/runtime deps to avoid preload packaging surprises.
-    plugins: [externalizeDepsPlugin()],
+    // Keep preload dependencies bundled so sandbox preload never relies on runtime Node resolution.
+    plugins: [],
     build: {
       // Emit preload build output next to main for simple relative path loading.
       outDir: 'dist/preload',

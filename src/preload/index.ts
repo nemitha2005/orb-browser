@@ -1,13 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { IPC_CHANNELS } from '../shared/ipc-contract';
 import {
-  IPC_CHANNELS,
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
   parseTabIdPayload,
   parseTabNavigatePayload,
   parseTabsStateSnapshotPayload,
-} from '../shared/ipc';
-import type { BrowserBounds, TabsStateSnapshot } from '../shared/ipc';
+} from '../shared/ipc-preload';
+import type { BrowserBounds, TabsStateSnapshot } from '../shared/ipc-contract';
 
 contextBridge.exposeInMainWorld('orb', {
   toggleFloat: () => ipcRenderer.invoke(IPC_CHANNELS.TOGGLE_FLOAT),
