@@ -2,17 +2,18 @@ import { app, BrowserView, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
 
 import {
-  IPC_CHANNELS,
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
   parseTabCreatePayload,
   parseTabIdPayload,
   parseTabNavigatePayload,
 } from '../shared/ipc';
+import { IPC_CHANNELS } from '../shared/ipc-contract';
 import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc';
 import { isHttpNavigationUrl } from '../shared/url';
 
-const isDev = process.argv.includes('--dev');
+const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
+const RENDERER_DIST = path.join(__dirname, '../renderer');
 
 interface ManagedTab {
   id: number;
@@ -70,6 +71,7 @@ function getActiveTab(): ManagedTab | undefined {
 
 function serializeTab(tab: ManagedTab): TabSnapshot {
   const { webContents } = tab.view;
+  const navigationHistory = webContents.navigationHistory;
   const canNavigate = tab.url !== null;
 
   return {
@@ -77,8 +79,8 @@ function serializeTab(tab: ManagedTab): TabSnapshot {
     title: tab.title,
     url: tab.url,
     isLoading: tab.isLoading,
-    canGoBack: canNavigate ? webContents.canGoBack() : false,
-    canGoForward: canNavigate ? webContents.canGoForward() : false,
+    canGoBack: canNavigate ? navigationHistory.canGoBack() : false,
+    canGoForward: canNavigate ? navigationHistory.canGoForward() : false,
   };
 }
 
@@ -393,7 +395,15 @@ function createMainWindow(): void {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, '../../public/index.html'));
+  if (VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(VITE_DEV_SERVER_URL).catch(error => {
+      console.error('[main] failed to load renderer dev URL', error);
+    });
+  } else {
+    mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html')).catch(error => {
+      console.error('[main] failed to load renderer index file', error);
+    });
+  }
 
   mainWindow.webContents.on('did-finish-load', () => {
     if (tabs.length === 0) {
@@ -407,7 +417,7 @@ function createMainWindow(): void {
     applyAttachedViewBounds();
   });
 
-  if (isDev) {
+  if (VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
@@ -437,7 +447,16 @@ function createFloatWindow(): void {
     },
   });
 
-  floatWindow.loadFile(path.join(__dirname, '../../public/float.html'));
+  if (VITE_DEV_SERVER_URL) {
+    const floatDevUrl = new URL('float.html', VITE_DEV_SERVER_URL).toString();
+    floatWindow.loadURL(floatDevUrl).catch(error => {
+      console.error('[main] failed to load float dev URL', error);
+    });
+  } else {
+    floatWindow.loadFile(path.join(RENDERER_DIST, 'float.html')).catch(error => {
+      console.error('[main] failed to load float renderer file', error);
+    });
+  }
 
   floatWindow.on('blur', () => {
     floatWindow?.hide();
@@ -501,20 +520,22 @@ ipcMain.handle(IPC_CHANNELS.TAB_NAVIGATE, (_event, payload: unknown) => {
 
 ipcMain.handle(IPC_CHANNELS.TAB_GO_BACK, () => {
   const activeTab = getActiveTab();
-  if (!activeTab || !activeTab.view.webContents.canGoBack()) {
+  const navigationHistory = activeTab?.view.webContents.navigationHistory;
+  if (!activeTab || !navigationHistory || !navigationHistory.canGoBack()) {
     return;
   }
 
-  activeTab.view.webContents.goBack();
+  navigationHistory.goBack();
 });
 
 ipcMain.handle(IPC_CHANNELS.TAB_GO_FORWARD, () => {
   const activeTab = getActiveTab();
-  if (!activeTab || !activeTab.view.webContents.canGoForward()) {
+  const navigationHistory = activeTab?.view.webContents.navigationHistory;
+  if (!activeTab || !navigationHistory || !navigationHistory.canGoForward()) {
     return;
   }
 
-  activeTab.view.webContents.goForward();
+  navigationHistory.goForward();
 });
 
 ipcMain.handle(IPC_CHANNELS.TAB_RELOAD, () => {
