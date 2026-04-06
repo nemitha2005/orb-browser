@@ -15,13 +15,14 @@ npm run dev
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Compile TS + launch with auto-reload |
+| `npm run dev` | Start electron-vite dev pipeline with renderer HMR |
+| `npm run build` | Build optimized production bundles for main, preload, and renderer |
 | `npm run lint` | Run ESLint across TypeScript source and tests |
 | `npm run typecheck` | Run strict TS type-check without emitting files |
 | `npm test` | Run the baseline unit test suite |
 | `npm run quality` | Run production quality gate (`lint` + `typecheck` + `test` + build) |
 | `npm run security:audit` | Fail if high-severity npm vulnerabilities are found |
-| `npm start` | Launch without dev tools |
+| `npm start` | Preview the production build with electron-vite |
 | `npm run package:win` | Build Windows installer |
 | `npm run package:mac` | Build macOS .dmg |
 | `npm run package:linux` | Build Linux AppImage |
@@ -43,7 +44,7 @@ Invalid example:
 
 Hooks enabled:
 
-- `pre-commit`: runs `npm run typecheck`
+- `pre-commit`: runs `npm run lint && npm run typecheck`
 - `commit-msg`: validates the commit message format
 
 If hooks do not run after clone, execute:
