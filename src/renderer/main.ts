@@ -22,6 +22,7 @@ const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
 
+let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
 
 function escapeHtml(input: string): string {
@@ -165,7 +166,7 @@ tabsContainer.addEventListener('click', event => {
   activateTab(Number(tabIdText));
 });
 
-window.orb.onOpenUrl(url => {
+unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
   // Float window already triggers main-process navigation; we mirror address text here.
   addressBar.value = url;
 });
@@ -214,6 +215,9 @@ window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
 
 window.addEventListener('beforeunload', () => {
+  unsubscribeOpenUrl?.();
+  unsubscribeOpenUrl = null;
+
   unsubscribeTabsState?.();
   unsubscribeTabsState = null;
 });

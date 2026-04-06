@@ -100,6 +100,17 @@ function emitTabsState(): void {
   mainWindow.webContents.send(IPC_CHANNELS.TABS_STATE_CHANGED, getTabsStateSnapshot());
 }
 
+function closeFloatWindow(): void {
+  if (!floatWindow || floatWindow.isDestroyed()) {
+    floatWindow = null;
+    return;
+  }
+
+  const windowToClose = floatWindow;
+  floatWindow = null;
+  windowToClose.close();
+}
+
 function detachAttachedView(): void {
   if (!mainWindow || !attachedView) {
     return;
@@ -275,6 +286,26 @@ function createTab(initialUrl: string | null = null): ManagedTab {
   return tab;
 }
 
+function destroyManagedTab(tab: ManagedTab): void {
+  if (attachedView === tab.view) {
+    attachedView = null;
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const views = mainWindow.getBrowserViews();
+    if (views.includes(tab.view)) {
+      mainWindow.removeBrowserView(tab.view);
+    }
+  }
+
+  const { webContents } = tab.view;
+  webContents.removeAllListeners();
+
+  if (!webContents.isDestroyed()) {
+    webContents.close();
+  }
+}
+
 function closeTab(tabId: number): void {
   const tabIndex = tabs.findIndex(tab => tab.id === tabId);
   if (tabIndex < 0) {
@@ -286,11 +317,7 @@ function closeTab(tabId: number): void {
     return;
   }
 
-  if (attachedView === tabToClose.view) {
-    detachAttachedView();
-  }
-
-  tabToClose.view.webContents.removeAllListeners();
+  destroyManagedTab(tabToClose);
 
   if (tabs.length === 0) {
     const replacement = createManagedTab(null);
@@ -326,11 +353,7 @@ function navigateActiveTab(rawInput: string): void {
 }
 
 function destroyAllTabs(): void {
-  detachAttachedView();
-
-  tabs.forEach(tab => {
-    tab.view.webContents.removeAllListeners();
-  });
+  tabs.forEach(destroyManagedTab);
 
   tabs = [];
   activeTabId = null;
@@ -423,6 +446,7 @@ function createMainWindow(): void {
 
   mainWindow.on('closed', () => {
     destroyAllTabs();
+    closeFloatWindow();
     mainWindow = null;
   });
 }
@@ -461,10 +485,21 @@ function createFloatWindow(): void {
   floatWindow.on('blur', () => {
     floatWindow?.hide();
   });
+
+  floatWindow.on('closed', () => {
+    floatWindow = null;
+  });
 }
 
 ipcMain.handle(IPC_CHANNELS.TOGGLE_FLOAT, () => {
-  if (!floatWindow) return;
+  if (!floatWindow || floatWindow.isDestroyed()) {
+    createFloatWindow();
+  }
+
+  if (!floatWindow) {
+    return;
+  }
+
   if (floatWindow.isVisible()) {
     floatWindow.hide();
   } else {
@@ -577,8 +612,12 @@ app.whenReady().then(() => {
   createFloatWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
       createMainWindow();
+    }
+
+    if (!floatWindow || floatWindow.isDestroyed()) {
+      createFloatWindow();
     }
   });
 });
@@ -586,6 +625,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     destroyAllTabs();
+    closeFloatWindow();
     app.quit();
   }
 });

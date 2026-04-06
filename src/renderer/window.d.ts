@@ -7,7 +7,7 @@ declare global {
     orb: {
       toggleFloat: () => Promise<void>;
       floatNavigate: (url: string) => Promise<void>;
-      onOpenUrl: (callback: (url: string) => void) => void;
+      onOpenUrl: (callback: (url: string) => void) => () => void;
       createTab: (url?: string) => Promise<void>;
       closeTab: (tabId: number) => Promise<void>;
       activateTab: (tabId: number) => Promise<void>;
