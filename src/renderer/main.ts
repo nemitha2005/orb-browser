@@ -1,5 +1,11 @@
 import './styles/tailwind.css';
 import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc-contract';
+import {
+  requestNavigateActiveTab,
+  requestTabClose,
+  requestTabCloseIfActive,
+  requestTabCreate,
+} from './interaction';
 
 interface RendererState {
   tabs: TabSnapshot[];
@@ -91,13 +97,12 @@ function applyState(nextState: TabsStateSnapshot): void {
 }
 
 function navigate(input: string): void {
-  const value = input.trim();
+  const value = requestNavigateActiveTab(window.orb, input);
   if (!value) {
     return;
   }
 
   // Main process normalizes this to URL/search and performs navigation safely.
-  void window.orb.navigateActiveTab(value);
   newTabSearch.value = '';
 }
 
@@ -106,11 +111,11 @@ function activateTab(tabId: number): void {
 }
 
 function closeTab(tabId: number): void {
-  void window.orb.closeTab(tabId);
+  requestTabClose(window.orb, tabId);
 }
 
 btnNewTab.addEventListener('click', () => {
-  void window.orb.createTab();
+  requestTabCreate(window.orb);
 });
 
 btnBack.addEventListener('click', () => {
@@ -180,15 +185,13 @@ document.addEventListener('keydown', event => {
 
   if (mod && event.key.toLowerCase() === 't') {
     event.preventDefault();
-    void window.orb.createTab();
+    requestTabCreate(window.orb);
     return;
   }
 
   if (mod && event.key.toLowerCase() === 'w') {
     event.preventDefault();
-    if (state.activeTabId) {
-      closeTab(state.activeTabId);
-    }
+    requestTabCloseIfActive(window.orb, state.activeTabId);
     return;
   }
 
@@ -225,6 +228,6 @@ window.addEventListener('beforeunload', () => {
 window.orb.getTabsState().then(initialState => {
   applyState(initialState);
   if (initialState.tabs.length === 0) {
-    void window.orb.createTab();
+    requestTabCreate(window.orb);
   }
 });
