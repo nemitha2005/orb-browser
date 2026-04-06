@@ -146,7 +146,7 @@ function attachActiveTabView(): void {
   }
 
   const activeTab = getActiveTab();
-  if (!activeTab) {
+  if (!activeTab || !activeTab.url) {
     detachAttachedView();
     return;
   }
@@ -315,6 +315,7 @@ function navigateActiveTab(rawInput: string): void {
   }
 
   activeTab.url = rawInput;
+  attachActiveTabView();
   activeTab.view.webContents.loadURL(rawInput).catch(error => {
     console.error('[main] failed to navigate tab', error);
   });
