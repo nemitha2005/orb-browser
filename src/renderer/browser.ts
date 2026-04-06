@@ -1,12 +1,3 @@
-interface Window {
-  orb: {
-    toggleFloat: () => Promise<void>;
-    floatNavigate: (url: string) => Promise<void>;
-    onOpenUrl: (callback: (url: string) => void) => void;
-    platform: string;
-  };
-}
-
 interface Tab {
   id: number;
   title: string;
@@ -14,7 +5,15 @@ interface Tab {
   webview: Electron.WebviewTag;
 }
 
-let tabs: Tab[] = [];
+interface WebviewUrlEvent extends Event {
+  url: string;
+}
+
+interface WebviewTitleEvent extends Event {
+  title: string;
+}
+
+const tabs: Tab[] = [];
 let activeTabId: number = 0;
 let tabCounter: number = 0;
 
@@ -29,12 +28,55 @@ const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
 
+const HTTP_PROTOCOLS = new Set(['http:', 'https:']);
+const SCHEME_PREFIX_RE = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
+const DOMAIN_LIKE_RE = /^[\w-]+(\.[\w-]+)+([/?#].*)?$/i;
+
+function parseUrl(rawUrl: string): URL | null {
+  try {
+    return new URL(rawUrl);
+  } catch {
+    return null;
+  }
+}
+
+function isSafeWebviewUrl(url: string): boolean {
+  const parsedUrl = parseUrl(url);
+  return parsedUrl ? HTTP_PROTOCOLS.has(parsedUrl.protocol) : false;
+}
+
+function normalizeHttpUrl(input: string): string | null {
+  const trimmedInput = input.trim();
+  if (!trimmedInput) {
+    return null;
+  }
+
+  const withScheme = SCHEME_PREFIX_RE.test(trimmedInput)
+    ? trimmedInput
+    : `https://${trimmedInput}`;
+
+  const parsedUrl = parseUrl(withScheme);
+  if (!parsedUrl || !HTTP_PROTOCOLS.has(parsedUrl.protocol)) {
+    return null;
+  }
+
+  return parsedUrl.toString();
+}
+
 function toUrl(input: string): string {
-  const val = input.trim();
-  if (!val) return '';
-  if (/^https?:\/\//i.test(val)) return val;
-  if (/^[\w-]+\.[a-z]{2,}(\/|$)/i.test(val)) return `https://${val}`;
-  return `https://www.google.com/search?q=${encodeURIComponent(val)}`;
+  const trimmedInput = input.trim();
+  if (!trimmedInput) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(trimmedInput) || DOMAIN_LIKE_RE.test(trimmedInput)) {
+    const normalizedUrl = normalizeHttpUrl(trimmedInput);
+    if (normalizedUrl) {
+      return normalizedUrl;
+    }
+  }
+
+  return `https://www.google.com/search?q=${encodeURIComponent(trimmedInput)}`;
 }
 
 function getActiveTab(): Tab | undefined {
@@ -64,16 +106,33 @@ function createTab(url: string | null = null): void {
 
   tabs.push(tab);
 
-  webview.addEventListener('did-navigate', (e: any) => {
-    if (activeTabId === id) {
-      addressBar.value = e.url;
-      updateNavButtons();
+  webview.addEventListener('will-navigate', (event: Event) => {
+    const navigationEvent = event as WebviewUrlEvent;
+    if (!isSafeWebviewUrl(navigationEvent.url)) {
+      event.preventDefault();
     }
-    tab.url = e.url;
   });
 
-  webview.addEventListener('page-title-updated', (e: any) => {
-    tab.title = e.title;
+  webview.addEventListener('new-window', (event: Event) => {
+    event.preventDefault();
+  });
+
+  webview.addEventListener('did-navigate', (event: Event) => {
+    const navigationEvent = event as WebviewUrlEvent;
+    if (!isSafeWebviewUrl(navigationEvent.url)) {
+      return;
+    }
+
+    if (activeTabId === id) {
+      addressBar.value = navigationEvent.url;
+      updateNavButtons();
+    }
+    tab.url = navigationEvent.url;
+  });
+
+  webview.addEventListener('page-title-updated', (event: Event) => {
+    const titleEvent = event as WebviewTitleEvent;
+    tab.title = titleEvent.title;
     renderTabs();
   });
 
@@ -85,15 +144,22 @@ function closeTab(id: number): void {
   const idx = tabs.findIndex(t => t.id === id);
   if (idx < 0) return;
 
-  tabs[idx].webview.remove();
+  const tabToClose = tabs[idx];
+  if (!tabToClose) {
+    return;
+  }
+
+  tabToClose.webview.remove();
   tabs.splice(idx, 1);
 
   if (tabs.length === 0) {
     createTab();
   } else {
     const next = tabs[Math.min(idx, tabs.length - 1)];
-    setActiveTab(next.id);
-    renderTabs();
+    if (next) {
+      setActiveTab(next.id);
+      renderTabs();
+    }
   }
 }
 

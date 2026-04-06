@@ -16,8 +16,10 @@ npm run dev
 | Command | What it does |
 |---|---|
 | `npm run dev` | Compile TS + launch with auto-reload |
+| `npm run lint` | Run ESLint across TypeScript source and tests |
 | `npm run typecheck` | Run strict TS type-check without emitting files |
-| `npm run quality` | Run production quality gate (`typecheck` + build) |
+| `npm test` | Run the baseline unit test suite |
+| `npm run quality` | Run production quality gate (`lint` + `typecheck` + `test` + build) |
 | `npm run security:audit` | Fail if high-severity npm vulnerabilities are found |
 | `npm start` | Launch without dev tools |
 | `npm run package:win` | Build Windows installer |
