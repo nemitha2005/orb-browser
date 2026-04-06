@@ -4,19 +4,20 @@
   "description": "Orb — A focus-first open source browser",
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "tsc && electronmon dist/main/index.js --dev",
-    "build:ts": "tsc",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:ts": "npm run build",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "quality": "npm run lint && npm run typecheck && npm run test && npm run build:ts",
+    "quality": "npm run lint && npm run typecheck && npm run test && npm run build",
     "security:audit": "npm audit --audit-level=high",
-    "start": "electron dist/main/index.js",
-    "package:win": "npm run build:ts && electron-builder --win",
-    "package:mac": "npm run build:ts && electron-builder --mac",
-    "package:linux": "npm run build:ts && electron-builder --linux",
+    "start": "electron-vite preview",
+    "package:win": "npm run build && electron-builder --win",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:linux": "npm run build && electron-builder --linux",
     "commitlint:last": "commitlint --from HEAD~1 --to HEAD",
     "prepare": "husky"
   },
@@ -28,7 +29,7 @@
     "@types/node": "^20.11.0",
     "electron": "^41.1.1",
     "electron-builder": "^26.8.1",
-    "electronmon": "^2.0.2",
+    "electron-vite": "^5.0.0",
     "eslint": "^10.2.0",
     "husky": "^9.1.7",
     "typescript": "^5.3.3",
@@ -38,13 +39,6 @@
   "dependencies": {
     "electron-store": "^8.1.0",
     "zod": "^4.3.6"
-  },
-  "electronmon": {
-    "patterns": [
-      "dist/**/*",
-      "public/**/*"
-    ],
-    "theme": "dark"
   },
   "build": {
     "appId": "com.orb.browser",
