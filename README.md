@@ -37,6 +37,12 @@ npm run dev
 - Last browser session tabs are restored on startup (up to 20 tabs).
 - Renderer supports a coder-focused orange light/dark theme toggle (persisted per user).
 
+## Storage Foundation
+
+- Main-process SQLite storage foundation is initialized from `src/main/storage`.
+- Versioned migrations create core tables for bookmarks, history, and session tabs.
+- Repository interfaces are ready for feature-layer integration.
+
 ## Commit Format Checker
 
 This project enforces Conventional Commits through Husky + commitlint.
@@ -85,7 +91,7 @@ Before shipping a production app, make sure you have:
 Use this gate before cutting a release branch or tag.
 
 1. CI policy:
-	- PRs to `develop` and `main` must pass quality, smoke, security audit, and Windows package smoke jobs.
+	- PRs to `develop` and `main` must pass quality, smoke, security audit, and Linux package smoke jobs.
 2. Local verification:
 	- `npm run quality`
 	- `npm run test:smoke`

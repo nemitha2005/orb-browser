@@ -12,6 +12,8 @@ import {
 import { IPC_CHANNELS } from '../shared/ipc-contract';
 import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc';
 import { isHttpNavigationUrl } from '../shared/url';
+import { initializeStorageLayer } from './storage';
+import type { StorageLayer } from './storage';
 
 const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
 const RENDERER_DIST = path.join(__dirname, '../renderer');
@@ -41,6 +43,7 @@ let attachedView: BrowserView | null = null;
 let nextTabId = 1;
 let activeTabId: number | null = null;
 let tabs: ManagedTab[] = [];
+let storageLayer: StorageLayer | null = null;
 let persistedStateStore: Store<PersistedStateSchema> | null = null;
 let browserBounds: BrowserBounds = {
   x: 0,
@@ -685,6 +688,15 @@ process.on('unhandledRejection', (reason) => {
 app.whenReady().then(() => {
   configureSessionSecurity();
   configureWebContentsSecurity();
+
+  try {
+    storageLayer = initializeStorageLayer({
+      userDataPath: app.getPath('userData'),
+    });
+  } catch (error) {
+    console.error('[main] failed to initialize SQLite storage layer', error);
+  }
+
   restoreTabsSession();
 
   createMainWindow();
@@ -705,6 +717,13 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     destroyAllTabs();
     closeFloatWindow();
+    storageLayer?.close();
+    storageLayer = null;
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  storageLayer?.close();
+  storageLayer = null;
 });
