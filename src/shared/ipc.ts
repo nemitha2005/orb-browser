@@ -5,6 +5,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  HistorySnapshot,
   TabsStateSnapshot,
 } from './ipc-contract';
 export { IPC_CHANNELS } from './ipc-contract';
@@ -12,6 +13,7 @@ export type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  HistorySnapshot,
   TabSnapshot,
   TabsStateSnapshot,
 } from './ipc-contract';
@@ -54,6 +56,14 @@ const BookmarkUpsertPayloadSchema = z.object({
   title: z.string().trim().max(512).optional().nullable(),
 });
 const BookmarksSnapshotPayloadSchema = z.array(BookmarkSnapshotPayloadSchema);
+const HistorySnapshotPayloadSchema = z.object({
+  id: z.number().int().positive(),
+  url: z.string().trim().min(1),
+  title: z.string(),
+  visitCount: z.number().int().nonnegative(),
+  lastVisitedAt: z.string(),
+});
+const HistorySnapshotsPayloadSchema = z.array(HistorySnapshotPayloadSchema);
 
 export function parseFloatNavigatePayload(payload: unknown): string | null {
   const parsedPayload = FloatNavigatePayloadSchema.safeParse(payload);
@@ -126,5 +136,10 @@ export function parseTabsStateSnapshotPayload(payload: unknown): TabsStateSnapsh
 
 export function parseBookmarksSnapshotPayload(payload: unknown): BookmarkSnapshot[] | null {
   const parsedPayload = BookmarksSnapshotPayloadSchema.safeParse(payload);
+  return parsedPayload.success ? parsedPayload.data : null;
+}
+
+export function parseHistorySnapshotsPayload(payload: unknown): HistorySnapshot[] | null {
+  const parsedPayload = HistorySnapshotsPayloadSchema.safeParse(payload);
   return parsedPayload.success ? parsedPayload.data : null;
 }

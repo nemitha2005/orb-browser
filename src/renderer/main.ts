@@ -2,6 +2,7 @@ import './styles/tailwind.css';
 import type {
   BookmarkSnapshot,
   BrowserBounds,
+  HistorySnapshot,
   TabSnapshot,
   TabsStateSnapshot,
 } from '../shared/ipc-contract';
@@ -23,9 +24,11 @@ interface RendererState {
   tabs: TabSnapshot[];
   activeTabId: number | null;
   bookmarks: BookmarkSnapshot[];
+  history: HistorySnapshot[];
   isBookmarkBarVisible: boolean;
   isBookmarkEditorOpen: boolean;
   isBookmarksSidebarOpen: boolean;
+  isHistorySidebarOpen: boolean;
 }
 
 const ORB_BOOKMARK_BAR_VISIBLE_KEY = 'orb-bookmark-bar-visible';
@@ -34,9 +37,11 @@ const state: RendererState = {
   tabs: [],
   activeTabId: null,
   bookmarks: [],
+  history: [],
   isBookmarkBarVisible: true,
   isBookmarkEditorOpen: false,
   isBookmarksSidebarOpen: false,
+  isHistorySidebarOpen: false,
 };
 
 const tabsContainer = document.getElementById('tabs') as HTMLDivElement;
@@ -51,6 +56,9 @@ const bookmarkEditorCancel = document.getElementById('bookmark-editor-cancel') a
 const bookmarksSidebar = document.getElementById('bookmarks-sidebar') as HTMLDivElement;
 const bookmarksList = document.getElementById('bookmarks-list') as HTMLUListElement;
 const bookmarksEmpty = document.getElementById('bookmarks-empty') as HTMLParagraphElement;
+const historySidebar = document.getElementById('history-sidebar') as HTMLDivElement;
+const historyList = document.getElementById('history-list') as HTMLUListElement;
+const historyEmpty = document.getElementById('history-empty') as HTMLParagraphElement;
 const browserArea = document.getElementById('browser-area') as HTMLDivElement;
 const newTabPage = document.getElementById('new-tab-page') as HTMLDivElement;
 const addressBar = document.getElementById('address-bar') as HTMLInputElement;
@@ -62,6 +70,8 @@ const btnTheme = document.getElementById('btn-theme') as HTMLButtonElement;
 const btnBookmark = document.getElementById('btn-bookmark') as HTMLButtonElement;
 const btnBookmarkBar = document.getElementById('btn-bookmark-bar') as HTMLButtonElement;
 const btnBookmarks = document.getElementById('btn-bookmarks') as HTMLButtonElement;
+const btnHistory = document.getElementById('btn-history') as HTMLButtonElement;
+const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
 const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -69,6 +79,7 @@ const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
 let unsubscribeBookmarks: (() => void) | null = null;
+let unsubscribeHistory: (() => void) | null = null;
 
 function getStoredBookmarkBarVisibility(): boolean {
   try {
@@ -217,13 +228,22 @@ function triggerBookmarkAction(): void {
   openBookmarkEditor(activeTab.title || activeTab.url, activeTab.url);
 }
 
-function getBookmarkFaviconUrl(rawUrl: string): string {
+function getSiteFaviconUrl(rawUrl: string): string {
   try {
     const parsedUrl = new URL(rawUrl);
     return `https://www.google.com/s2/favicons?sz=32&domain_url=${encodeURIComponent(parsedUrl.origin)}`;
   } catch {
     return '';
   }
+}
+
+function formatHistoryTimestamp(value: string): string {
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return 'Unknown time';
+  }
+
+  return parsedDate.toLocaleString();
 }
 
 function syncBrowserBounds(): void {
@@ -285,6 +305,11 @@ function renderBookmarkControls(): void {
   btnBookmarks.title = state.isBookmarksSidebarOpen
     ? 'Hide bookmarks sidebar'
     : 'Show bookmarks sidebar';
+
+  btnHistory.textContent = state.isHistorySidebarOpen ? '×' : 'H';
+  btnHistory.title = state.isHistorySidebarOpen
+    ? 'Hide history sidebar (Cmd/Ctrl+H)'
+    : 'Show history sidebar (Cmd/Ctrl+H)';
 }
 
 function renderBookmarkEditor(): void {
@@ -308,7 +333,7 @@ function renderBookmarkBar(): void {
   }
 
   state.bookmarks.forEach(bookmark => {
-    const faviconUrl = getBookmarkFaviconUrl(bookmark.url);
+    const faviconUrl = getSiteFaviconUrl(bookmark.url);
     const faviconMarkup = faviconUrl
       ? `<img src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" class="h-4 w-4 shrink-0 rounded-sm bg-white/80" />`
       : '<span class="h-4 w-4 shrink-0 rounded-sm bg-orb-surface-2"></span>';
@@ -355,6 +380,37 @@ function renderBookmarksSidebar(): void {
   });
 }
 
+function renderHistorySidebar(): void {
+  historySidebar.classList.toggle('hidden', !state.isHistorySidebarOpen);
+
+  historyList.innerHTML = '';
+  const hasHistory = state.history.length > 0;
+  historyEmpty.style.display = hasHistory ? 'none' : 'block';
+  btnHistoryClear.disabled = !hasHistory;
+
+  if (!hasHistory) {
+    return;
+  }
+
+  state.history.forEach(historyEntry => {
+    const faviconUrl = getSiteFaviconUrl(historyEntry.url);
+    const historyElement = document.createElement('li');
+    historyElement.className = 'mb-1 last:mb-0';
+    historyElement.innerHTML = `
+      <button class="flex w-full items-start gap-2 rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-left transition hover:bg-orb-surface-2" data-history-open-id="${historyEntry.id}" title="${escapeHtml(historyEntry.url)}">
+        <img src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" class="mt-[1px] h-4 w-4 shrink-0 rounded-sm bg-white/80" />
+        <span class="min-w-0 flex-1">
+          <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">${escapeHtml(historyEntry.title || historyEntry.url)}</span>
+          <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-orb-text-dim">${escapeHtml(historyEntry.url)}</span>
+          <span class="mt-0.5 block text-[10px] text-orb-text-dim">${escapeHtml(formatHistoryTimestamp(historyEntry.lastVisitedAt))} • ${historyEntry.visitCount} visits</span>
+        </span>
+      </button>
+    `;
+
+    historyList.appendChild(historyElement);
+  });
+}
+
 function render(): void {
   renderTabs();
   renderNavigation();
@@ -362,6 +418,7 @@ function render(): void {
   renderBookmarkBar();
   renderBookmarkEditor();
   renderBookmarksSidebar();
+  renderHistorySidebar();
 }
 
 function applyState(nextState: TabsStateSnapshot): void {
@@ -376,7 +433,16 @@ function applyBookmarks(nextBookmarks: BookmarkSnapshot[]): void {
   render();
 }
 
+function applyHistory(nextHistory: HistorySnapshot[]): void {
+  state.history = nextHistory;
+  render();
+}
+
 function setBookmarksSidebarOpen(isOpen: boolean): void {
+  if (isOpen) {
+    state.isHistorySidebarOpen = false;
+  }
+
   if (state.isBookmarksSidebarOpen === isOpen) {
     return;
   }
@@ -388,6 +454,24 @@ function setBookmarksSidebarOpen(isOpen: boolean): void {
 
 function toggleBookmarksSidebar(): void {
   setBookmarksSidebarOpen(!state.isBookmarksSidebarOpen);
+}
+
+function setHistorySidebarOpen(isOpen: boolean): void {
+  if (isOpen) {
+    state.isBookmarksSidebarOpen = false;
+  }
+
+  if (state.isHistorySidebarOpen === isOpen) {
+    return;
+  }
+
+  state.isHistorySidebarOpen = isOpen;
+  render();
+  syncBrowserBounds();
+}
+
+function toggleHistorySidebar(): void {
+  setHistorySidebarOpen(!state.isHistorySidebarOpen);
 }
 
 function setBookmarkBarVisible(isVisible: boolean): void {
@@ -457,6 +541,14 @@ btnBookmarkBar.addEventListener('click', () => {
 
 btnBookmarks.addEventListener('click', () => {
   toggleBookmarksSidebar();
+});
+
+btnHistory.addEventListener('click', () => {
+  toggleHistorySidebar();
+});
+
+btnHistoryClear.addEventListener('click', () => {
+  void window.orb.clearHistory().then(applyHistory);
 });
 
 btnFloat.addEventListener('click', () => {
@@ -599,6 +691,30 @@ bookmarkBarList.addEventListener('click', event => {
   navigate(bookmark.url);
 });
 
+historyList.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const openTarget = target.closest<HTMLElement>('[data-history-open-id]');
+  if (!openTarget) {
+    return;
+  }
+
+  const historyId = Number(openTarget.getAttribute('data-history-open-id'));
+  if (!Number.isInteger(historyId) || historyId <= 0) {
+    return;
+  }
+
+  const historyEntry = state.history.find(entry => entry.id === historyId);
+  if (!historyEntry) {
+    return;
+  }
+
+  navigate(historyEntry.url);
+});
+
 unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
   // Float window already triggers main-process navigation; we mirror address text here.
   addressBar.value = url;
@@ -610,6 +726,10 @@ unsubscribeTabsState = window.orb.onTabsStateChanged(nextState => {
 
 unsubscribeBookmarks = window.orb.onBookmarksChanged(nextBookmarks => {
   applyBookmarks(nextBookmarks);
+});
+
+unsubscribeHistory = window.orb.onHistoryChanged(nextHistory => {
+  applyHistory(nextHistory);
 });
 
 document.addEventListener('keydown', event => {
@@ -652,6 +772,12 @@ document.addEventListener('keydown', event => {
     return;
   }
 
+  if (mod && event.key.toLowerCase() === 'h') {
+    event.preventDefault();
+    toggleHistorySidebar();
+    return;
+  }
+
   if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
     event.preventDefault();
     toggleBookmarkBar();
@@ -678,10 +804,17 @@ window.addEventListener('beforeunload', () => {
 
   unsubscribeBookmarks?.();
   unsubscribeBookmarks = null;
+
+  unsubscribeHistory?.();
+  unsubscribeHistory = null;
 });
 
 window.orb.getBookmarks().then(initialBookmarks => {
   applyBookmarks(initialBookmarks);
+});
+
+window.orb.getHistory().then(initialHistory => {
+  applyHistory(initialHistory);
 });
 
 window.orb.getTabsState().then(initialState => {

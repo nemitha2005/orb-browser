@@ -37,6 +37,7 @@ npm run dev
 - Last browser session tabs are restored on startup (up to 20 tabs).
 - Renderer supports a coder-focused orange light/dark theme toggle (persisted per user).
 - Bookmarks MVP is wired to SQLite: star action opens a name+URL save prompt (prefilled defaults), plus favicon bookmark bar and sidebar open/remove flow.
+- History MVP records visits automatically and exposes a sidebar with recent entries and clear action.
 
 ## Storage Foundation
 
@@ -113,6 +114,7 @@ Use this gate before cutting a release branch or tag.
 | Cmd/Ctrl + L | Focus address bar |
 | Cmd/Ctrl + R | Reload |
 | Cmd/Ctrl + D | Toggle bookmark for active page |
+| Cmd/Ctrl + H | Toggle history sidebar |
 | Cmd/Ctrl + Shift + B | Toggle bookmark bar |
 | Cmd/Ctrl + Shift + O | Toggle floating window |
 

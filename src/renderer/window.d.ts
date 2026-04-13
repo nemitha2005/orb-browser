@@ -4,6 +4,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  HistorySnapshot,
   TabsStateSnapshot,
 } from '../shared/ipc-contract';
 
@@ -28,6 +29,9 @@ declare global {
       upsertBookmark: (payload: BookmarkUpsertPayload) => Promise<BookmarkSnapshot[]>;
       removeBookmark: (bookmarkId: number) => Promise<BookmarkSnapshot[]>;
       onBookmarksChanged: (callback: (bookmarks: BookmarkSnapshot[]) => void) => () => void;
+      getHistory: () => Promise<HistorySnapshot[]>;
+      clearHistory: () => Promise<HistorySnapshot[]>;
+      onHistoryChanged: (callback: (history: HistorySnapshot[]) => void) => () => void;
       platform: string;
     };
   }

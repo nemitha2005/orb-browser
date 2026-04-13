@@ -3,6 +3,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  HistorySnapshot,
   TabSnapshot,
   TabsStateSnapshot,
 } from './ipc-contract';
@@ -164,6 +165,38 @@ export function parseBookmarksSnapshotPayload(payload: unknown): BookmarkSnapsho
   }
 
   if (!payload.every(isBookmarkSnapshot)) {
+    return null;
+  }
+
+  return payload;
+}
+
+function isHistorySnapshot(payload: unknown): payload is HistorySnapshot {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const historyEntry = payload as Record<string, unknown>;
+  return (
+    typeof historyEntry.id === 'number' &&
+    Number.isInteger(historyEntry.id) &&
+    historyEntry.id > 0 &&
+    typeof historyEntry.url === 'string' &&
+    historyEntry.url.length > 0 &&
+    typeof historyEntry.title === 'string' &&
+    typeof historyEntry.visitCount === 'number' &&
+    Number.isInteger(historyEntry.visitCount) &&
+    historyEntry.visitCount >= 0 &&
+    typeof historyEntry.lastVisitedAt === 'string'
+  );
+}
+
+export function parseHistorySnapshotsPayload(payload: unknown): HistorySnapshot[] | null {
+  if (!Array.isArray(payload)) {
+    return null;
+  }
+
+  if (!payload.every(isHistorySnapshot)) {
     return null;
   }
 
