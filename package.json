@@ -17,6 +17,8 @@
     "security:audit": "npm audit --audit-level=high",
     "start": "electron-vite preview",
     "package:win": "npm run build && electron-builder --win",
+    "package:smoke:win": "npm run build && electron-builder --win --dir",
+    "package:smoke:linux": "npm run build && electron-builder --linux --dir",
     "package:mac": "npm run build && electron-builder --mac",
     "package:linux": "npm run build && electron-builder --linux",
     "commitlint:last": "commitlint --from HEAD~1 --to HEAD",
