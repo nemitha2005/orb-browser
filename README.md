@@ -79,6 +79,22 @@ Before shipping a production app, make sure you have:
 11. Monitoring: alerting for crash spikes, startup failures, and update failures.
 12. Dependency maintenance: regular upgrades and vulnerability triage.
 
+## Release Gate
+
+Use this gate before cutting a release branch or tag.
+
+1. CI policy:
+	- PRs to `develop` and `main` must pass quality, smoke, security audit, and Windows package smoke jobs.
+2. Local verification:
+	- `npm run quality`
+	- `npm run test:smoke`
+	- `npm run security:audit`
+3. Packaging check:
+	- `npm run package:smoke:win` (unpacked package sanity check)
+4. Merge policy:
+	- Feature branches merge to `develop` only.
+	- `develop` merges to `main` only after release gate is green.
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
