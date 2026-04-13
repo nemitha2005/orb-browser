@@ -1,4 +1,5 @@
 import { app, BrowserView, BrowserWindow, ipcMain, session } from 'electron';
+import Store from 'electron-store';
 import path from 'path';
 
 import {
@@ -14,6 +15,8 @@ import { isHttpNavigationUrl } from '../shared/url';
 
 const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
 const RENDERER_DIST = path.join(__dirname, '../renderer');
+const TABS_SESSION_KEY = 'tabsSession';
+const MAX_RESTORED_TABS = 20;
 
 interface ManagedTab {
   id: number;
@@ -23,18 +26,44 @@ interface ManagedTab {
   view: BrowserView;
 }
 
+interface PersistedTabSession {
+  tabs: Array<{ url: string | null }>;
+  activeTabIndex: number;
+}
+
+interface PersistedStateSchema {
+  tabsSession: PersistedTabSession;
+}
+
 let mainWindow: BrowserWindow | null = null;
 let floatWindow: BrowserWindow | null = null;
 let attachedView: BrowserView | null = null;
 let nextTabId = 1;
 let activeTabId: number | null = null;
 let tabs: ManagedTab[] = [];
+let persistedStateStore: Store<PersistedStateSchema> | null = null;
 let browserBounds: BrowserBounds = {
   x: 0,
   y: 120,
   width: 1200,
   height: 680,
 };
+
+function getPersistedStateStore(): Store<PersistedStateSchema> {
+  if (!persistedStateStore) {
+    persistedStateStore = new Store<PersistedStateSchema>({
+      name: 'orb-state',
+      defaults: {
+        tabsSession: {
+          tabs: [],
+          activeTabIndex: 0,
+        },
+      },
+    });
+  }
+
+  return persistedStateStore;
+}
 
 // Renderer pages should only navigate to local files (or devtools in development).
 function isTrustedAppUrl(rawUrl: string): boolean {
@@ -91,8 +120,55 @@ function getTabsStateSnapshot(): TabsStateSnapshot {
   };
 }
 
+function persistTabsSession(): void {
+  const activeTabIndex = tabs.findIndex(tab => tab.id === activeTabId);
+  const sessionSnapshot: PersistedTabSession = {
+    tabs: tabs.map(tab => ({ url: tab.url })),
+    activeTabIndex: activeTabIndex >= 0 ? activeTabIndex : 0,
+  };
+
+  try {
+    getPersistedStateStore().set(TABS_SESSION_KEY, sessionSnapshot);
+  } catch (error) {
+    console.error('[main] failed to persist tabs session', error);
+  }
+}
+
+function restoreTabsSession(): void {
+  let persistedSession: PersistedTabSession;
+
+  try {
+    persistedSession = getPersistedStateStore().get(TABS_SESSION_KEY);
+  } catch (error) {
+    console.error('[main] failed to read tabs session', error);
+    return;
+  }
+
+  if (!Array.isArray(persistedSession.tabs) || persistedSession.tabs.length === 0) {
+    return;
+  }
+
+  const tabsToRestore = persistedSession.tabs.slice(0, MAX_RESTORED_TABS);
+  tabsToRestore.forEach(tab => {
+    const tabUrl =
+      typeof tab.url === 'string' && isHttpNavigationUrl(tab.url)
+        ? tab.url
+        : null;
+
+    createManagedTab(tabUrl);
+  });
+
+  const normalizedActiveTabIndex = Number.isInteger(persistedSession.activeTabIndex)
+    ? persistedSession.activeTabIndex
+    : 0;
+  const safeActiveTabIndex = clamp(normalizedActiveTabIndex, 0, tabs.length - 1);
+  activeTabId = tabs[safeActiveTabIndex]?.id ?? null;
+}
+
 // The renderer is UI-only now, so all browser state flows from main through this event.
 function emitTabsState(): void {
+  persistTabsSession();
+
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
@@ -431,6 +507,8 @@ function createMainWindow(): void {
   mainWindow.webContents.on('did-finish-load', () => {
     if (tabs.length === 0) {
       createTab();
+    } else {
+      attachActiveTabView();
     }
 
     emitTabsState();
@@ -607,6 +685,7 @@ process.on('unhandledRejection', (reason) => {
 app.whenReady().then(() => {
   configureSessionSecurity();
   configureWebContentsSecurity();
+  restoreTabsSession();
 
   createMainWindow();
   createFloatWindow();

@@ -34,6 +34,7 @@ npm run dev
 - Styling uses Tailwind CSS via `src/renderer/styles/tailwind.css`.
 - Main page entry: `src/renderer/index.html` + `src/renderer/main.ts`
 - Float page entry: `src/renderer/float.html` + `src/renderer/float.ts`
+- Last browser session tabs are restored on startup (up to 20 tabs).
 
 ## Commit Format Checker
 
