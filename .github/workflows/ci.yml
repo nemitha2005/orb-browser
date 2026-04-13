@@ -26,5 +26,8 @@ jobs:
       - name: Type check and build
         run: npm run quality
 
+      - name: Smoke tests
+        run: npm run test:smoke
+
       - name: Security audit (high)
         run: npm run security:audit

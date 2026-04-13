@@ -20,6 +20,7 @@ npm run dev
 | `npm run lint` | Run ESLint across TypeScript source and tests |
 | `npm run typecheck` | Run strict TS type-check without emitting files |
 | `npm test` | Run the baseline unit test suite |
+| `npm run test:smoke` | Run renderer interaction smoke checks (tab/search flow + renderer contract) |
 | `npm run quality` | Run production quality gate (`lint` + `typecheck` + `test` + build) |
 | `npm run security:audit` | Fail if high-severity npm vulnerabilities are found |
 | `npm start` | Preview the production build with electron-vite |
@@ -33,6 +34,7 @@ npm run dev
 - Styling uses Tailwind CSS via `src/renderer/styles/tailwind.css`.
 - Main page entry: `src/renderer/index.html` + `src/renderer/main.ts`
 - Float page entry: `src/renderer/float.html` + `src/renderer/float.ts`
+- Last browser session tabs are restored on startup (up to 20 tabs).
 
 ## Commit Format Checker
 
