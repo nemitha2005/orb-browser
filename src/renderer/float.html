@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https: ws:;" />
@@ -8,7 +8,7 @@
 <body class="flex h-screen items-center gap-3 overflow-hidden rounded-[14px] border-[1.5px] border-orb-accent bg-orb-surface px-[18px]">
   <span class="icon shrink-0 text-lg text-orb-accent">◎</span>
   <input id="input" type="text" placeholder="Quick search or URL…" autofocus spellcheck="false" class="flex-1 select-text border-0 bg-transparent text-[15px] text-orb-text outline-none placeholder:text-[#555]" />
-  <span class="hint shrink-0 text-[11px] text-[#444]">Esc to close</span>
+  <span class="hint shrink-0 font-mono text-[11px] text-orb-text-dim">Esc to close</span>
 
   <script type="module" src="./float.ts"></script>
 </body>

@@ -35,6 +35,7 @@ npm run dev
 - Main page entry: `src/renderer/index.html` + `src/renderer/main.ts`
 - Float page entry: `src/renderer/float.html` + `src/renderer/float.ts`
 - Last browser session tabs are restored on startup (up to 20 tabs).
+- Renderer supports a coder-focused orange light/dark theme toggle (persisted per user).
 
 ## Commit Format Checker
 
