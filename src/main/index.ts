@@ -3,6 +3,8 @@ import Store from 'electron-store';
 import path from 'path';
 
 import {
+  parseBookmarkIdPayload,
+  parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
   parseTabCreatePayload,
@@ -10,7 +12,13 @@ import {
   parseTabNavigatePayload,
 } from '../shared/ipc';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
-import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from '../shared/ipc';
+import type {
+  BookmarkSnapshot,
+  BookmarkUpsertPayload,
+  BrowserBounds,
+  TabSnapshot,
+  TabsStateSnapshot,
+} from '../shared/ipc';
 import { isHttpNavigationUrl } from '../shared/url';
 import { initializeStorageLayer } from './storage';
 import type { StorageLayer } from './storage';
@@ -121,6 +129,72 @@ function getTabsStateSnapshot(): TabsStateSnapshot {
     tabs: tabs.map(serializeTab),
     activeTabId,
   };
+}
+
+function getBookmarksSnapshot(): BookmarkSnapshot[] {
+  if (!storageLayer) {
+    return [];
+  }
+
+  return storageLayer.bookmarks.list().map(bookmark => {
+    return {
+      id: bookmark.id,
+      url: bookmark.url,
+      title: bookmark.title,
+      createdAt: bookmark.createdAt,
+      updatedAt: bookmark.updatedAt,
+    };
+  });
+}
+
+function emitBookmarksChanged(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(IPC_CHANNELS.BOOKMARKS_CHANGED, getBookmarksSnapshot());
+}
+
+function toggleActiveBookmark(): BookmarkSnapshot[] {
+  const activeTab = getActiveTab();
+  if (!activeTab?.url || !storageLayer) {
+    return getBookmarksSnapshot();
+  }
+
+  const existingBookmark = storageLayer.bookmarks
+    .list()
+    .find(bookmark => bookmark.url === activeTab.url);
+
+  if (existingBookmark) {
+    storageLayer.bookmarks.remove(existingBookmark.id);
+  } else {
+    const bookmarkTitle = activeTab.title || activeTab.url;
+    storageLayer.bookmarks.upsert(activeTab.url, bookmarkTitle);
+  }
+
+  const bookmarks = getBookmarksSnapshot();
+  emitBookmarksChanged();
+  return bookmarks;
+}
+
+function removeBookmarkById(bookmarkId: number): BookmarkSnapshot[] {
+  storageLayer?.bookmarks.remove(bookmarkId);
+
+  const bookmarks = getBookmarksSnapshot();
+  emitBookmarksChanged();
+  return bookmarks;
+}
+
+function upsertBookmark(payload: BookmarkUpsertPayload): BookmarkSnapshot[] {
+  if (!storageLayer) {
+    return getBookmarksSnapshot();
+  }
+
+  storageLayer.bookmarks.upsert(payload.url, payload.title);
+
+  const bookmarks = getBookmarksSnapshot();
+  emitBookmarksChanged();
+  return bookmarks;
 }
 
 function persistTabsSession(): void {
@@ -515,6 +589,7 @@ function createMainWindow(): void {
     }
 
     emitTabsState();
+    emitBookmarksChanged();
   });
 
   mainWindow.on('resize', () => {
@@ -675,6 +750,32 @@ ipcMain.handle(IPC_CHANNELS.TAB_SET_BOUNDS, (_event, payload: unknown) => {
 
 ipcMain.handle(IPC_CHANNELS.TABS_GET_STATE, () => {
   return getTabsStateSnapshot();
+});
+
+ipcMain.handle(IPC_CHANNELS.BOOKMARKS_GET, () => {
+  return getBookmarksSnapshot();
+});
+
+ipcMain.handle(IPC_CHANNELS.BOOKMARKS_TOGGLE_ACTIVE, () => {
+  return toggleActiveBookmark();
+});
+
+ipcMain.handle(IPC_CHANNELS.BOOKMARKS_UPSERT, (_event, payload: unknown) => {
+  const safePayload = parseBookmarkUpsertPayload(payload);
+  if (!safePayload) {
+    return getBookmarksSnapshot();
+  }
+
+  return upsertBookmark(safePayload);
+});
+
+ipcMain.handle(IPC_CHANNELS.BOOKMARKS_REMOVE, (_event, payload: unknown) => {
+  const bookmarkId = parseBookmarkIdPayload(payload);
+  if (!bookmarkId) {
+    return getBookmarksSnapshot();
+  }
+
+  return removeBookmarkById(bookmarkId);
 });
 
 process.on('uncaughtException', (error) => {

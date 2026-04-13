@@ -63,13 +63,11 @@
     opacity: 0.22;
   }
 
-  #titlebar,
   #tabbar {
     -webkit-app-region: drag;
   }
 
   #navbar,
-  #tabs,
   button,
   input,
   .tab,

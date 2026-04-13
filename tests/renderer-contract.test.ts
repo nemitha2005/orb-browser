@@ -21,9 +21,24 @@ describe('renderer contract smoke', () => {
       'btn-forward',
       'btn-reload',
       'btn-theme',
+      'btn-bookmark',
+      'btn-bookmark-bar',
+      'btn-bookmarks',
       'btn-float',
+      'bookmark-bar',
+      'bookmark-bar-list',
+      'bookmark-bar-empty',
+      'bookmark-editor',
+      'bookmark-editor-title',
+      'bookmark-editor-url',
+      'bookmark-editor-save',
+      'bookmark-editor-cancel',
+      'browser-layout',
       'browser-area',
       'new-tab-page',
+      'bookmarks-sidebar',
+      'bookmarks-list',
+      'bookmarks-empty',
     ];
 
     requiredIds.forEach(id => {
@@ -40,7 +55,6 @@ describe('renderer contract smoke', () => {
     expect(indexHtml).toContain('[-webkit-app-region:drag]');
     expect(indexHtml).toContain('[-webkit-app-region:no-drag]');
 
-    expect(tailwindCss).toContain('#titlebar');
     expect(tailwindCss).toContain('#tabbar');
     expect(tailwindCss).toContain('#navbar');
     expect(tailwindCss).toContain('.tab-close');

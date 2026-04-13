@@ -1,5 +1,11 @@
 import { toNavigableUrl } from './url';
-import type { BrowserBounds, TabSnapshot, TabsStateSnapshot } from './ipc-contract';
+import type {
+  BookmarkSnapshot,
+  BookmarkUpsertPayload,
+  BrowserBounds,
+  TabSnapshot,
+  TabsStateSnapshot,
+} from './ipc-contract';
 
 function parseStringPayload(payload: unknown, maxLen = 2048): string | null {
   if (typeof payload !== 'string') {
@@ -23,6 +29,42 @@ export function parseTabIdPayload(payload: unknown): number | null {
   return typeof payload === 'number' && Number.isInteger(payload) && payload > 0
     ? payload
     : null;
+}
+
+export function parseBookmarkIdPayload(payload: unknown): number | null {
+  return typeof payload === 'number' && Number.isInteger(payload) && payload > 0
+    ? payload
+    : null;
+}
+
+export function parseBookmarkUpsertPayload(payload: unknown): BookmarkUpsertPayload | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const bookmark = payload as Record<string, unknown>;
+  if (typeof bookmark.url !== 'string') {
+    return null;
+  }
+
+  const urlInput = bookmark.url.trim();
+  if (!urlInput || urlInput.length > 2048) {
+    return null;
+  }
+
+  const normalizedUrl = toNavigableUrl(urlInput);
+  if (!normalizedUrl) {
+    return null;
+  }
+
+  const titleInput =
+    typeof bookmark.title === 'string' ? bookmark.title.trim() : '';
+  const normalizedTitle = titleInput.slice(0, 512) || normalizedUrl;
+
+  return {
+    url: normalizedUrl,
+    title: normalizedTitle,
+  };
 }
 
 export function parseTabNavigatePayload(payload: unknown): string | null {
@@ -96,4 +138,34 @@ export function parseTabsStateSnapshotPayload(payload: unknown): TabsStateSnapsh
     tabs,
     activeTabId,
   };
+}
+
+function isBookmarkSnapshot(payload: unknown): payload is BookmarkSnapshot {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const bookmark = payload as Record<string, unknown>;
+  return (
+    typeof bookmark.id === 'number' &&
+    Number.isInteger(bookmark.id) &&
+    bookmark.id > 0 &&
+    typeof bookmark.url === 'string' &&
+    bookmark.url.length > 0 &&
+    typeof bookmark.title === 'string' &&
+    typeof bookmark.createdAt === 'string' &&
+    typeof bookmark.updatedAt === 'string'
+  );
+}
+
+export function parseBookmarksSnapshotPayload(payload: unknown): BookmarkSnapshot[] | null {
+  if (!Array.isArray(payload)) {
+    return null;
+  }
+
+  if (!payload.every(isBookmarkSnapshot)) {
+    return null;
+  }
+
+  return payload;
 }

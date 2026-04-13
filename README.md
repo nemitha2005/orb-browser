@@ -36,6 +36,7 @@ npm run dev
 - Float page entry: `src/renderer/float.html` + `src/renderer/float.ts`
 - Last browser session tabs are restored on startup (up to 20 tabs).
 - Renderer supports a coder-focused orange light/dark theme toggle (persisted per user).
+- Bookmarks MVP is wired to SQLite: star action opens a name+URL save prompt (prefilled defaults), plus favicon bookmark bar and sidebar open/remove flow.
 
 ## Storage Foundation
 
@@ -111,6 +112,8 @@ Use this gate before cutting a release branch or tag.
 | Cmd/Ctrl + W | Close tab |
 | Cmd/Ctrl + L | Focus address bar |
 | Cmd/Ctrl + R | Reload |
+| Cmd/Ctrl + D | Toggle bookmark for active page |
+| Cmd/Ctrl + Shift + B | Toggle bookmark bar |
 | Cmd/Ctrl + Shift + O | Toggle floating window |
 
 ## License
