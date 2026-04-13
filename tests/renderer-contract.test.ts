@@ -24,6 +24,7 @@ describe('renderer contract smoke', () => {
       'btn-bookmark',
       'btn-bookmark-bar',
       'btn-bookmarks',
+      'btn-history',
       'btn-float',
       'bookmark-bar',
       'bookmark-bar-list',
@@ -39,6 +40,10 @@ describe('renderer contract smoke', () => {
       'bookmarks-sidebar',
       'bookmarks-list',
       'bookmarks-empty',
+      'history-sidebar',
+      'btn-history-clear',
+      'history-list',
+      'history-empty',
     ];
 
     requiredIds.forEach(id => {

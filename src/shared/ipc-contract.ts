@@ -32,6 +32,14 @@ export interface BookmarkUpsertPayload {
   title: string;
 }
 
+export interface HistorySnapshot {
+  id: number;
+  url: string;
+  title: string;
+  visitCount: number;
+  lastVisitedAt: string;
+}
+
 export const IPC_CHANNELS = {
   TOGGLE_FLOAT: 'toggle-float',
   FLOAT_NAVIGATE: 'float-navigate',
@@ -51,4 +59,7 @@ export const IPC_CHANNELS = {
   BOOKMARKS_UPSERT: 'bookmarks-upsert',
   BOOKMARKS_REMOVE: 'bookmarks-remove',
   BOOKMARKS_CHANGED: 'bookmarks-changed',
+  HISTORY_GET: 'history-get',
+  HISTORY_CLEAR: 'history-clear',
+  HISTORY_CHANGED: 'history-changed',
 } as const;

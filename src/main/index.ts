@@ -16,6 +16,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  HistorySnapshot,
   TabSnapshot,
   TabsStateSnapshot,
 } from '../shared/ipc';
@@ -27,6 +28,7 @@ const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
 const RENDERER_DIST = path.join(__dirname, '../renderer');
 const TABS_SESSION_KEY = 'tabsSession';
 const MAX_RESTORED_TABS = 20;
+const HISTORY_LIST_LIMIT = 200;
 
 interface ManagedTab {
   id: number;
@@ -147,12 +149,36 @@ function getBookmarksSnapshot(): BookmarkSnapshot[] {
   });
 }
 
+function getHistorySnapshot(): HistorySnapshot[] {
+  if (!storageLayer) {
+    return [];
+  }
+
+  return storageLayer.history.listRecent(HISTORY_LIST_LIMIT).map(historyEntry => {
+    return {
+      id: historyEntry.id,
+      url: historyEntry.url,
+      title: historyEntry.title,
+      visitCount: historyEntry.visitCount,
+      lastVisitedAt: historyEntry.lastVisitedAt,
+    };
+  });
+}
+
 function emitBookmarksChanged(): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
 
   mainWindow.webContents.send(IPC_CHANNELS.BOOKMARKS_CHANGED, getBookmarksSnapshot());
+}
+
+function emitHistoryChanged(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(IPC_CHANNELS.HISTORY_CHANGED, getHistorySnapshot());
 }
 
 function toggleActiveBookmark(): BookmarkSnapshot[] {
@@ -195,6 +221,24 @@ function upsertBookmark(payload: BookmarkUpsertPayload): BookmarkSnapshot[] {
   const bookmarks = getBookmarksSnapshot();
   emitBookmarksChanged();
   return bookmarks;
+}
+
+function recordHistoryVisit(url: string | null, title: string | null): void {
+  if (!storageLayer || !url || !isHttpNavigationUrl(url)) {
+    return;
+  }
+
+  const historyTitle = title?.trim() || url;
+  storageLayer.history.recordVisit(url, historyTitle);
+  emitHistoryChanged();
+}
+
+function clearHistory(): HistorySnapshot[] {
+  storageLayer?.history.clear();
+
+  const history = getHistorySnapshot();
+  emitHistoryChanged();
+  return history;
 }
 
 function persistTabsSession(): void {
@@ -362,11 +406,16 @@ function configureTabEvents(tab: ManagedTab): void {
   });
 
   webContents.on('did-stop-loading', () => {
+    const currentUrl = webContents.getURL() || null;
+    const currentTitle = webContents.getTitle() || null;
+
     syncTabFromContents(webContents.id, entry => {
       entry.isLoading = false;
-      entry.url = webContents.getURL() || null;
-      entry.title = webContents.getTitle() || entry.title;
+      entry.url = currentUrl;
+      entry.title = currentTitle || entry.title;
     });
+
+    recordHistoryVisit(currentUrl, currentTitle);
   });
 
   webContents.on('did-navigate', (_event, navigationUrl) => {
@@ -590,6 +639,7 @@ function createMainWindow(): void {
 
     emitTabsState();
     emitBookmarksChanged();
+    emitHistoryChanged();
   });
 
   mainWindow.on('resize', () => {
@@ -776,6 +826,14 @@ ipcMain.handle(IPC_CHANNELS.BOOKMARKS_REMOVE, (_event, payload: unknown) => {
   }
 
   return removeBookmarkById(bookmarkId);
+});
+
+ipcMain.handle(IPC_CHANNELS.HISTORY_GET, () => {
+  return getHistorySnapshot();
+});
+
+ipcMain.handle(IPC_CHANNELS.HISTORY_CLEAR, () => {
+  return clearHistory();
 });
 
 process.on('uncaughtException', (error) => {

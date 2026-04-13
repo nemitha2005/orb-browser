@@ -6,6 +6,7 @@ import {
   parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
+  parseHistorySnapshotsPayload,
   parseTabIdPayload,
   parseTabNavigatePayload,
   parseTabsStateSnapshotPayload,
@@ -14,6 +15,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  HistorySnapshot,
   TabsStateSnapshot,
 } from '../shared/ipc-contract';
 
@@ -164,6 +166,33 @@ contextBridge.exposeInMainWorld('orb', {
 
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.BOOKMARKS_CHANGED, handler);
+    };
+  },
+
+  getHistory: async (): Promise<HistorySnapshot[]> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET);
+    return parseHistorySnapshotsPayload(payload) ?? [];
+  },
+
+  clearHistory: async (): Promise<HistorySnapshot[]> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR);
+    return parseHistorySnapshotsPayload(payload) ?? [];
+  },
+
+  onHistoryChanged: (callback: (history: HistorySnapshot[]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+      const parsedHistory = parseHistorySnapshotsPayload(payload);
+      if (!parsedHistory) {
+        return;
+      }
+
+      callback(parsedHistory);
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.HISTORY_CHANGED, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.HISTORY_CHANGED, handler);
     };
   },
 
