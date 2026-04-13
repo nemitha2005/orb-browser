@@ -3,6 +3,32 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --orb-bg: #f7f3eb;
+    --orb-surface: #fffaf2;
+    --orb-surface-2: #f2e8da;
+    --orb-border: #e2d3bc;
+    --orb-accent: #e77a14;
+    --orb-accent-dim: #c55e07;
+    --orb-accent-soft: #ffe7cf;
+    --orb-text: #211b14;
+    --orb-text-dim: #6e5f4f;
+    color-scheme: light;
+  }
+
+  html[data-theme='dark'] {
+    --orb-bg: #14100b;
+    --orb-surface: #1e1812;
+    --orb-surface-2: #2a2219;
+    --orb-border: #3a2f23;
+    --orb-accent: #ff9f3f;
+    --orb-accent-dim: #df7f1f;
+    --orb-accent-soft: #3b2712;
+    --orb-text: #f4eee4;
+    --orb-text-dim: #b6a68f;
+    color-scheme: dark;
+  }
+
   * {
     @apply box-border;
   }
@@ -10,6 +36,31 @@
   html,
   body {
     @apply m-0 p-0;
+    background-color: var(--orb-bg);
+    color: var(--orb-text);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  }
+
+  body {
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.34;
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--orb-border) 45%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--orb-border) 45%, transparent) 1px, transparent 1px),
+      radial-gradient(circle at top right, color-mix(in srgb, var(--orb-accent) 22%, transparent), transparent 48%);
+    background-size: 22px 22px, 22px 22px, auto;
+    z-index: -1;
+  }
+
+  html[data-theme='dark'] body::before {
+    opacity: 0.22;
   }
 
   #titlebar,
@@ -29,7 +80,7 @@
 
 @layer components {
   .tab {
-    @apply [-webkit-app-region:no-drag] flex max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-orb bg-orb-surface px-2.5 py-[5px] text-xs text-orb-text-dim transition;
+    @apply [-webkit-app-region:no-drag] flex max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-orb border border-orb-border bg-orb-surface px-2.5 py-[5px] text-xs text-orb-text-dim transition;
   }
 
   .tab:hover {
@@ -37,7 +88,7 @@
   }
 
   .tab.active {
-    @apply bg-orb-surface-2 text-orb-text;
+    @apply border-orb-accent bg-orb-surface-2 text-orb-text;
   }
 
   .tab-title {
@@ -49,6 +100,6 @@
   }
 
   .tab-close:hover {
-    @apply bg-white/10 text-orb-text;
+    @apply bg-orb-accent-soft text-orb-text;
   }
 }

@@ -1,6 +1,30 @@
 import './styles/tailwind.css';
+import { normalizeTheme, ORB_THEME_STORAGE_KEY, resolveTheme } from './theme';
 
 const input = document.getElementById('input') as HTMLInputElement;
+const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function getStoredTheme(): string | null {
+  try {
+    return window.localStorage.getItem(ORB_THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function syncTheme(): void {
+  const resolvedTheme = resolveTheme(getStoredTheme(), themeMediaQuery.matches);
+  document.documentElement.dataset.theme = resolvedTheme;
+}
+
+const onThemePreferenceChanged = (): void => {
+  if (!normalizeTheme(getStoredTheme())) {
+    syncTheme();
+  }
+};
+
+syncTheme();
+themeMediaQuery.addEventListener('change', onThemePreferenceChanged);
 
 function submitInput(): void {
   const value = input.value.trim();
@@ -25,6 +49,17 @@ input.addEventListener('keydown', event => {
 });
 
 window.addEventListener('focus', () => {
+  syncTheme();
   input.focus();
   input.select();
+});
+
+window.addEventListener('storage', event => {
+  if (event.key === ORB_THEME_STORAGE_KEY) {
+    syncTheme();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  themeMediaQuery.removeEventListener('change', onThemePreferenceChanged);
 });

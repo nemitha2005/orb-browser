@@ -20,6 +20,7 @@ describe('renderer contract smoke', () => {
       'btn-back',
       'btn-forward',
       'btn-reload',
+      'btn-theme',
       'btn-float',
       'browser-area',
       'new-tab-page',

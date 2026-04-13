@@ -6,6 +6,12 @@ import {
   requestTabCloseIfActive,
   requestTabCreate,
 } from '../src/renderer/interaction';
+import {
+  getNextTheme,
+  getThemeToggleMeta,
+  normalizeTheme,
+  resolveTheme,
+} from '../src/renderer/theme';
 import { normalizeHttpUrl, toNavigableUrl } from '../src/shared/url';
 
 function createMockOrb() {
@@ -69,5 +75,32 @@ describe('renderer interaction smoke flow', () => {
     expect(didCloseInvalid).toBe(false);
     expect(orb.navigateActiveTab).not.toHaveBeenCalled();
     expect(orb.closeTab).not.toHaveBeenCalled();
+  });
+});
+
+describe('renderer theme helpers', () => {
+  it('normalizes valid theme values', () => {
+    expect(normalizeTheme('dark')).toBe('dark');
+    expect(normalizeTheme('light')).toBe('light');
+    expect(normalizeTheme('system')).toBeNull();
+  });
+
+  it('resolves stored theme with system fallback', () => {
+    expect(resolveTheme('light', true)).toBe('light');
+    expect(resolveTheme(null, true)).toBe('dark');
+    expect(resolveTheme(null, false)).toBe('light');
+  });
+
+  it('toggles and labels theme state', () => {
+    expect(getNextTheme('dark')).toBe('light');
+    expect(getNextTheme('light')).toBe('dark');
+    expect(getThemeToggleMeta('dark')).toEqual({
+      icon: '☀',
+      title: 'Switch to light mode',
+    });
+    expect(getThemeToggleMeta('light')).toEqual({
+      icon: '☾',
+      title: 'Switch to dark mode',
+    });
   });
 });

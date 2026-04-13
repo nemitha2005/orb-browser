@@ -6,6 +6,13 @@ import {
   requestTabCloseIfActive,
   requestTabCreate,
 } from './interaction';
+import {
+  getNextTheme,
+  getThemeToggleMeta,
+  normalizeTheme,
+  ORB_THEME_STORAGE_KEY,
+  resolveTheme,
+} from './theme';
 
 interface RendererState {
   tabs: TabSnapshot[];
@@ -25,11 +32,55 @@ const newTabSearch = document.getElementById('new-tab-search') as HTMLInputEleme
 const btnBack = document.getElementById('btn-back') as HTMLButtonElement;
 const btnForward = document.getElementById('btn-forward') as HTMLButtonElement;
 const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
+const btnTheme = document.getElementById('btn-theme') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
+const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
+
+function getStoredTheme(): string | null {
+  try {
+    return window.localStorage.getItem(ORB_THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredTheme(theme: string): void {
+  try {
+    window.localStorage.setItem(ORB_THEME_STORAGE_KEY, theme);
+  } catch {
+    // Ignore localStorage write failures in restricted environments.
+  }
+}
+
+function getCurrentTheme(): 'light' | 'dark' {
+  return normalizeTheme(document.documentElement.dataset.theme ?? null) ?? 'dark';
+}
+
+function applyTheme(theme: 'light' | 'dark'): void {
+  document.documentElement.dataset.theme = theme;
+
+  const themeToggleMeta = getThemeToggleMeta(theme);
+  btnTheme.textContent = themeToggleMeta.icon;
+  btnTheme.title = themeToggleMeta.title;
+}
+
+function syncThemeFromEnvironment(): void {
+  const resolvedTheme = resolveTheme(getStoredTheme(), themeMediaQuery.matches);
+  applyTheme(resolvedTheme);
+}
+
+const onThemePreferenceChanged = (): void => {
+  if (!normalizeTheme(getStoredTheme())) {
+    syncThemeFromEnvironment();
+  }
+};
+
+syncThemeFromEnvironment();
+themeMediaQuery.addEventListener('change', onThemePreferenceChanged);
 
 function escapeHtml(input: string): string {
   return input
@@ -130,6 +181,12 @@ btnReload.addEventListener('click', () => {
   void window.orb.reload();
 });
 
+btnTheme.addEventListener('click', () => {
+  const nextTheme = getNextTheme(getCurrentTheme());
+  setStoredTheme(nextTheme);
+  applyTheme(nextTheme);
+});
+
 btnFloat.addEventListener('click', () => {
   void window.orb.toggleFloat();
 });
@@ -218,6 +275,8 @@ window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
 
 window.addEventListener('beforeunload', () => {
+  themeMediaQuery.removeEventListener('change', onThemePreferenceChanged);
+
   unsubscribeOpenUrl?.();
   unsubscribeOpenUrl = null;
 
