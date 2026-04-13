@@ -90,7 +90,8 @@ Use this gate before cutting a release branch or tag.
 	- `npm run test:smoke`
 	- `npm run security:audit`
 3. Packaging check:
-	- `npm run package:smoke:win` (unpacked package sanity check)
+	- CI runs `npm run package:smoke:linux` (unpacked package sanity check)
+	- Optional local Windows check: `npm run package:smoke:win` (requires symlink privilege)
 4. Merge policy:
 	- Feature branches merge to `develop` only.
 	- `develop` merges to `main` only after release gate is green.
