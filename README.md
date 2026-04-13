@@ -20,6 +20,7 @@ npm run dev
 | `npm run lint` | Run ESLint across TypeScript source and tests |
 | `npm run typecheck` | Run strict TS type-check without emitting files |
 | `npm test` | Run the baseline unit test suite |
+| `npm run test:smoke` | Run renderer interaction smoke checks (tab/search flow + renderer contract) |
 | `npm run quality` | Run production quality gate (`lint` + `typecheck` + `test` + build) |
 | `npm run security:audit` | Fail if high-severity npm vulnerabilities are found |
 | `npm start` | Preview the production build with electron-vite |
