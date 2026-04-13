@@ -10,6 +10,7 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       ELECTRON_CACHE: ~/.cache/electron
       ELECTRON_BUILDER_CACHE: ~/.cache/electron-builder
       NPM_CONFIG_FETCH_RETRIES: 5
@@ -62,6 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: quality
     env:
+      ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+      ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
       ELECTRON_CACHE: ~/.cache/electron
       ELECTRON_BUILDER_CACHE: ~/.cache/electron-builder
       NPM_CONFIG_FETCH_RETRIES: 5
