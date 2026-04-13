@@ -7,12 +7,6 @@
   <title>Orb</title>
 </head>
 <body class="flex h-screen flex-col overflow-hidden bg-orb-bg text-orb-text">
-  <div id="titlebar" class="[-webkit-app-region:drag] flex h-11 items-center gap-3 border-b border-orb-border bg-orb-bg px-4">
-    <div id="titlebar-spacer" class="w-[68px] shrink-0"></div>
-    <span id="orb-logo" class="font-mono text-[13px] font-bold uppercase tracking-[3px] text-orb-accent">Orb</span>
-    <span class="rounded-full border border-orb-border bg-orb-surface px-2 py-0.5 font-mono text-[10px] uppercase tracking-[1.5px] text-orb-text-dim">dev edition</span>
-  </div>
-
   <div id="tabbar" class="[-webkit-app-region:drag] flex items-center gap-1 bg-orb-bg px-3 py-1.5">
     <div id="tabs" class="flex flex-1 gap-1 overflow-hidden"></div>
     <button id="btn-new-tab" title="New tab (Cmd+T)" class="[-webkit-app-region:no-drag] flex h-[26px] w-[26px] items-center justify-center rounded-orb border-0 bg-orb-surface text-lg leading-none text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">+</button>
@@ -23,21 +17,48 @@
     <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-base text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-forward" title="Forward">›</button>
     <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-base text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-reload" title="Reload">↻</button>
     <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-sm text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-theme" title="Switch to light mode">☀</button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-sm text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-bookmark" title="Bookmark this page">☆</button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-xs text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-bookmark-bar" title="Toggle bookmarks bar (Cmd/Ctrl+Shift+B)">▤</button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-xs text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-bookmarks" title="Toggle bookmarks sidebar">☰</button>
     <input id="address-bar" type="text" placeholder="Search or enter a URL…" spellcheck="false" class="h-8 flex-1 rounded-orb border border-orb-border bg-orb-surface px-3 text-[13px] text-orb-text outline-none transition focus:border-orb-accent" />
     <button id="btn-float" title="Floating window (Cmd+Shift+O)" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-orb border-0 bg-orb-accent text-base text-white transition hover:bg-orb-accent-dim">◎</button>
   </div>
 
-  <div id="browser-area" class="relative flex-1 overflow-hidden bg-white">
-    <div id="new-tab-page" class="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-orb-bg">
-      <h1 class="bg-gradient-to-br from-orb-accent to-orange-300 bg-clip-text text-[52px] font-extrabold tracking-[-2px] text-transparent">Orb</h1>
-      <p class="font-mono text-xs uppercase tracking-[1.5px] text-orb-text-dim">Build-focused browser workspace</p>
-      <input id="new-tab-search" type="text" placeholder="Search or enter a URL…" autofocus spellcheck="false" class="h-[46px] w-[500px] max-w-[92vw] rounded-xl border border-orb-border bg-orb-surface px-5 text-[15px] text-orb-text outline-none transition focus:border-orb-accent" />
-      <p class="hint text-xs text-orb-text-dim opacity-70">
-        <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+T</kbd> new tab &nbsp;·&nbsp;
-        <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+W</kbd> close tab &nbsp;·&nbsp;
-        <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+Shift+O</kbd> floating window
-      </p>
+  <div id="bookmark-bar" class="flex items-center gap-1 border-y border-orb-border bg-orb-surface px-2 py-1">
+    <div id="bookmark-bar-list" class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1"></div>
+    <span id="bookmark-bar-empty" class="shrink-0 px-1 text-[11px] text-orb-text-dim">Bookmark sites for quick access</span>
+  </div>
+
+  <div id="bookmark-editor" class="hidden items-center gap-2 border-b border-orb-border bg-orb-bg px-2 py-1.5">
+    <span class="shrink-0 font-mono text-[10px] uppercase tracking-[1px] text-orb-text-dim">Save bookmark</span>
+    <input id="bookmark-editor-title" type="text" placeholder="Name" spellcheck="false" class="h-7 min-w-0 flex-[1.2] rounded-orb border border-orb-border bg-orb-surface px-2 text-[12px] text-orb-text outline-none transition focus:border-orb-accent" />
+    <input id="bookmark-editor-url" type="text" placeholder="URL" spellcheck="false" class="h-7 min-w-0 flex-[2] rounded-orb border border-orb-border bg-orb-surface px-2 text-[12px] text-orb-text outline-none transition focus:border-orb-accent" />
+    <button id="bookmark-editor-save" class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-accent px-2.5 text-[11px] font-semibold text-white transition hover:bg-orb-accent-dim">Save</button>
+    <button id="bookmark-editor-cancel" class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-surface px-2.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Cancel</button>
+  </div>
+
+  <div id="browser-layout" class="flex flex-1 overflow-hidden">
+    <div id="browser-area" class="relative flex-1 overflow-hidden bg-white">
+      <div id="new-tab-page" class="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-orb-bg">
+        <h1 class="bg-gradient-to-br from-orb-accent to-orange-300 bg-clip-text text-[52px] font-extrabold tracking-[-2px] text-transparent">Orb</h1>
+        <p class="font-mono text-xs uppercase tracking-[1.5px] text-orb-text-dim">Build-focused browser workspace</p>
+        <input id="new-tab-search" type="text" placeholder="Search or enter a URL…" autofocus spellcheck="false" class="h-[46px] w-[500px] max-w-[92vw] rounded-xl border border-orb-border bg-orb-surface px-5 text-[15px] text-orb-text outline-none transition focus:border-orb-accent" />
+        <p class="hint text-xs text-orb-text-dim opacity-70">
+          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+T</kbd> new tab &nbsp;·&nbsp;
+          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+W</kbd> close tab &nbsp;·&nbsp;
+          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+D</kbd> bookmark page
+        </p>
+      </div>
     </div>
+
+    <aside id="bookmarks-sidebar" class="hidden w-[320px] shrink-0 border-l border-orb-border bg-orb-surface">
+      <div class="flex items-center justify-between border-b border-orb-border px-3 py-2">
+        <h2 class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">Bookmarks</h2>
+        <span class="text-[11px] text-orb-text-dim">Sidebar</span>
+      </div>
+      <ul id="bookmarks-list" class="max-h-full overflow-y-auto px-2 py-2"></ul>
+      <p id="bookmarks-empty" class="px-3 py-4 text-sm text-orb-text-dim">No bookmarks yet. Open a page and press the star.</p>
+    </aside>
   </div>
 
   <script type="module" src="./main.ts"></script>

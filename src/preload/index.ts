@@ -1,13 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
 import {
+  parseBookmarkIdPayload,
+  parseBookmarksSnapshotPayload,
+  parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
   parseTabIdPayload,
   parseTabNavigatePayload,
   parseTabsStateSnapshotPayload,
 } from '../shared/ipc-preload';
-import type { BrowserBounds, TabsStateSnapshot } from '../shared/ipc-contract';
+import type {
+  BookmarkSnapshot,
+  BookmarkUpsertPayload,
+  BrowserBounds,
+  TabsStateSnapshot,
+} from '../shared/ipc-contract';
 
 contextBridge.exposeInMainWorld('orb', {
   toggleFloat: () => ipcRenderer.invoke(IPC_CHANNELS.TOGGLE_FLOAT),
@@ -104,6 +112,58 @@ contextBridge.exposeInMainWorld('orb', {
 
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TABS_STATE_CHANGED, handler);
+    };
+  },
+
+  getBookmarks: async (): Promise<BookmarkSnapshot[]> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_GET);
+    return parseBookmarksSnapshotPayload(payload) ?? [];
+  },
+
+  toggleActiveBookmark: async (): Promise<BookmarkSnapshot[]> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_TOGGLE_ACTIVE);
+    return parseBookmarksSnapshotPayload(payload) ?? [];
+  },
+
+  upsertBookmark: async (payload: BookmarkUpsertPayload): Promise<BookmarkSnapshot[]> => {
+    const safePayload = parseBookmarkUpsertPayload(payload);
+    if (!safePayload) {
+      const fallbackPayload = await ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_GET);
+      return parseBookmarksSnapshotPayload(fallbackPayload) ?? [];
+    }
+
+    const responsePayload = await ipcRenderer.invoke(
+      IPC_CHANNELS.BOOKMARKS_UPSERT,
+      safePayload,
+    );
+    return parseBookmarksSnapshotPayload(responsePayload) ?? [];
+  },
+
+  removeBookmark: async (bookmarkId: number): Promise<BookmarkSnapshot[]> => {
+    const safeBookmarkId = parseBookmarkIdPayload(bookmarkId);
+    if (!safeBookmarkId) {
+      const fallbackPayload = await ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_GET);
+      return parseBookmarksSnapshotPayload(fallbackPayload) ?? [];
+    }
+
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.BOOKMARKS_REMOVE, safeBookmarkId);
+    return parseBookmarksSnapshotPayload(payload) ?? [];
+  },
+
+  onBookmarksChanged: (callback: (bookmarks: BookmarkSnapshot[]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+      const parsedBookmarks = parseBookmarksSnapshotPayload(payload);
+      if (!parsedBookmarks) {
+        return;
+      }
+
+      callback(parsedBookmarks);
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.BOOKMARKS_CHANGED, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.BOOKMARKS_CHANGED, handler);
     };
   },
 

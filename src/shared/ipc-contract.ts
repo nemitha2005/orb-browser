@@ -19,6 +19,19 @@ export interface TabsStateSnapshot {
   activeTabId: number | null;
 }
 
+export interface BookmarkSnapshot {
+  id: number;
+  url: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookmarkUpsertPayload {
+  url: string;
+  title: string;
+}
+
 export const IPC_CHANNELS = {
   TOGGLE_FLOAT: 'toggle-float',
   FLOAT_NAVIGATE: 'float-navigate',
@@ -33,4 +46,9 @@ export const IPC_CHANNELS = {
   TAB_SET_BOUNDS: 'tab-set-bounds',
   TABS_GET_STATE: 'tabs-get-state',
   TABS_STATE_CHANGED: 'tabs-state-changed',
+  BOOKMARKS_GET: 'bookmarks-get',
+  BOOKMARKS_TOGGLE_ACTIVE: 'bookmarks-toggle-active',
+  BOOKMARKS_UPSERT: 'bookmarks-upsert',
+  BOOKMARKS_REMOVE: 'bookmarks-remove',
+  BOOKMARKS_CHANGED: 'bookmarks-changed',
 } as const;

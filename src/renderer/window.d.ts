@@ -1,6 +1,11 @@
 export {};
 
-import type { BrowserBounds, TabsStateSnapshot } from '../shared/ipc-contract';
+import type {
+  BookmarkSnapshot,
+  BookmarkUpsertPayload,
+  BrowserBounds,
+  TabsStateSnapshot,
+} from '../shared/ipc-contract';
 
 declare global {
   interface Window {
@@ -18,6 +23,11 @@ declare global {
       setBrowserBounds: (bounds: BrowserBounds) => Promise<void>;
       getTabsState: () => Promise<TabsStateSnapshot>;
       onTabsStateChanged: (callback: (state: TabsStateSnapshot) => void) => () => void;
+      getBookmarks: () => Promise<BookmarkSnapshot[]>;
+      toggleActiveBookmark: () => Promise<BookmarkSnapshot[]>;
+      upsertBookmark: (payload: BookmarkUpsertPayload) => Promise<BookmarkSnapshot[]>;
+      removeBookmark: (bookmarkId: number) => Promise<BookmarkSnapshot[]>;
+      onBookmarksChanged: (callback: (bookmarks: BookmarkSnapshot[]) => void) => () => void;
       platform: string;
     };
   }
