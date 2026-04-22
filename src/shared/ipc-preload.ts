@@ -4,9 +4,13 @@ import type {
   BookmarkUpsertPayload,
   BrowserBounds,
   HistorySnapshot,
+  MenuAction,
+  MenuInitPayload,
+  MenuShowPayload,
   TabSnapshot,
   TabsStateSnapshot,
 } from './ipc-contract';
+import { MENU_ACTIONS } from './ipc-contract';
 
 function parseStringPayload(payload: unknown, maxLen = 2048): string | null {
   if (typeof payload !== 'string') {
@@ -201,4 +205,57 @@ export function parseHistorySnapshotsPayload(payload: unknown): HistorySnapshot[
   }
 
   return payload;
+}
+
+const validMenuActions: ReadonlySet<string> = new Set(Object.values(MENU_ACTIONS));
+
+export function parseMenuActionPayload(payload: unknown): MenuAction | null {
+  if (typeof payload !== 'string' || !validMenuActions.has(payload)) {
+    return null;
+  }
+
+  return payload as MenuAction;
+}
+
+export function parseMenuShowPayload(payload: unknown): MenuShowPayload | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const p = payload as Record<string, unknown>;
+  if (typeof p.screenX !== 'number' || typeof p.screenY !== 'number') {
+    return null;
+  }
+
+  if (typeof p.isBookmarkBarVisible !== 'boolean') {
+    return null;
+  }
+
+  if (p.theme !== 'light' && p.theme !== 'dark') {
+    return null;
+  }
+
+  return {
+    screenX: p.screenX,
+    screenY: p.screenY,
+    isBookmarkBarVisible: p.isBookmarkBarVisible,
+    theme: p.theme,
+  };
+}
+
+export function parseMenuInitPayload(payload: unknown): MenuInitPayload | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const p = payload as Record<string, unknown>;
+  if (typeof p.isBookmarkBarVisible !== 'boolean') {
+    return null;
+  }
+
+  if (p.theme !== 'light' && p.theme !== 'dark') {
+    return null;
+  }
+
+  return { isBookmarkBarVisible: p.isBookmarkBarVisible, theme: p.theme };
 }

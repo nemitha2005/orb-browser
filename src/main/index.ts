@@ -1,4 +1,4 @@
-import { app, BrowserView, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserView, BrowserWindow, ipcMain, screen, session } from 'electron';
 import Store from 'electron-store';
 import path from 'path';
 
@@ -7,6 +7,8 @@ import {
   parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
+  parseMenuActionPayload,
+  parseMenuShowPayload,
   parseTabCreatePayload,
   parseTabIdPayload,
   parseTabNavigatePayload,
@@ -47,8 +49,13 @@ interface PersistedStateSchema {
   tabsSession: PersistedTabSession;
 }
 
+const MENU_WIDTH = 220;
+const MENU_HEIGHT = 272;
+
 let mainWindow: BrowserWindow | null = null;
 let floatWindow: BrowserWindow | null = null;
+let menuWindow: BrowserWindow | null = null;
+let menuWindowReady = false;
 let attachedView: BrowserView | null = null;
 let nextTabId = 1;
 let activeTabId: number | null = null;
@@ -305,6 +312,18 @@ function closeFloatWindow(): void {
 
   const windowToClose = floatWindow;
   floatWindow = null;
+  windowToClose.close();
+}
+
+function closeMenuWindow(): void {
+  if (!menuWindow || menuWindow.isDestroyed()) {
+    menuWindow = null;
+    return;
+  }
+
+  const windowToClose = menuWindow;
+  menuWindow = null;
+  menuWindowReady = false;
   windowToClose.close();
 }
 
@@ -653,6 +672,7 @@ function createMainWindow(): void {
   mainWindow.on('closed', () => {
     destroyAllTabs();
     closeFloatWindow();
+    closeMenuWindow();
     mainWindow = null;
   });
 }
@@ -697,6 +717,52 @@ function createFloatWindow(): void {
   });
 }
 
+function createMenuWindow(): void {
+  menuWindowReady = false;
+  menuWindow = new BrowserWindow({
+    width: MENU_WIDTH,
+    height: MENU_HEIGHT,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    show: false,
+    backgroundColor: '#1e1812',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
+
+  if (VITE_DEV_SERVER_URL) {
+    const menuDevUrl = new URL('menu.html', VITE_DEV_SERVER_URL).toString();
+    menuWindow.loadURL(menuDevUrl).catch(error => {
+      console.error('[main] failed to load menu dev URL', error);
+    });
+  } else {
+    menuWindow.loadFile(path.join(RENDERER_DIST, 'menu.html')).catch(error => {
+      console.error('[main] failed to load menu renderer file', error);
+    });
+  }
+
+  menuWindow.webContents.on('did-finish-load', () => {
+    menuWindowReady = true;
+  });
+
+  menuWindow.on('blur', () => {
+    menuWindow?.hide();
+  });
+
+  menuWindow.on('closed', () => {
+    menuWindow = null;
+    menuWindowReady = false;
+  });
+}
+
 ipcMain.handle(IPC_CHANNELS.TOGGLE_FLOAT, () => {
   if (!floatWindow || floatWindow.isDestroyed()) {
     createFloatWindow();
@@ -712,6 +778,68 @@ ipcMain.handle(IPC_CHANNELS.TOGGLE_FLOAT, () => {
     floatWindow.center();
     floatWindow.show();
     floatWindow.focus();
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MENU_SHOW, (_event, payload: unknown) => {
+  const safePayload = parseMenuShowPayload(payload);
+  if (!safePayload) {
+    return;
+  }
+
+  if (!menuWindow || menuWindow.isDestroyed()) {
+    createMenuWindow();
+  }
+
+  if (!menuWindow) {
+    return;
+  }
+
+  const display = screen.getDisplayNearestPoint({
+    x: safePayload.screenX,
+    y: safePayload.screenY,
+  });
+  const { workArea } = display;
+
+  const menuX = Math.max(
+    workArea.x,
+    Math.min(safePayload.screenX - MENU_WIDTH, workArea.x + workArea.width - MENU_WIDTH),
+  );
+  const menuY = Math.max(
+    workArea.y,
+    Math.min(safePayload.screenY + 4, workArea.y + workArea.height - MENU_HEIGHT),
+  );
+
+  menuWindow.setPosition(Math.round(menuX), Math.round(menuY));
+
+  const initPayload = {
+    isBookmarkBarVisible: safePayload.isBookmarkBarVisible,
+    theme: safePayload.theme,
+  };
+
+  const sendAndShow = (): void => {
+    menuWindow?.webContents.send(IPC_CHANNELS.MENU_INIT, initPayload);
+    menuWindow?.show();
+    menuWindow?.focus();
+  };
+
+  if (menuWindowReady) {
+    sendAndShow();
+  } else {
+    menuWindow.webContents.once('did-finish-load', sendAndShow);
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.MENU_ACTION, (_event, payload: unknown) => {
+  const action = parseMenuActionPayload(payload);
+  if (!action) {
+    return;
+  }
+
+  menuWindow?.hide();
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.MENU_ACTION_RELAY, action);
   }
 });
 
@@ -860,6 +988,7 @@ app.whenReady().then(() => {
 
   createMainWindow();
   createFloatWindow();
+  createMenuWindow();
 
   app.on('activate', () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -869,6 +998,10 @@ app.whenReady().then(() => {
     if (!floatWindow || floatWindow.isDestroyed()) {
       createFloatWindow();
     }
+
+    if (!menuWindow || menuWindow.isDestroyed()) {
+      createMenuWindow();
+    }
   });
 });
 
@@ -876,6 +1009,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     destroyAllTabs();
     closeFloatWindow();
+    closeMenuWindow();
     storageLayer?.close();
     storageLayer = null;
     app.quit();

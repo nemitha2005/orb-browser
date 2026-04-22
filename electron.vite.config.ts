@@ -67,10 +67,11 @@ export default defineConfig({
       // Minify renderer bundle for production performance.
       minify: 'esbuild',
       rollupOptions: {
-        // Multi-page setup: main browser window UI + floating quick-search window UI.
+        // Multi-page setup: main browser window UI + floating quick-search window + dropdown menu.
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           float: resolve(__dirname, 'src/renderer/float.html'),
+          menu: resolve(__dirname, 'src/renderer/menu.html'),
         },
         output: {
           // Use deterministic renderer entry names for simple diagnostics.

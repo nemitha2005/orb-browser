@@ -12,17 +12,14 @@
     <button id="btn-new-tab" title="New tab (Cmd+T)" class="[-webkit-app-region:no-drag] flex h-[26px] w-[26px] items-center justify-center rounded-orb border-0 bg-orb-surface text-lg leading-none text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">+</button>
   </div>
 
-  <div id="navbar" class="flex items-center gap-1.5 bg-orb-bg px-3 pb-2 pt-1.5">
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-base text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-back" title="Back">‹</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-base text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-forward" title="Forward">›</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-base text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-reload" title="Reload">↻</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-sm text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-theme" title="Switch to light mode">☀</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-sm text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-bookmark" title="Bookmark this page">☆</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-xs text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-bookmark-bar" title="Toggle bookmarks bar (Cmd/Ctrl+Shift+B)">▤</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-xs text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-bookmarks" title="Toggle bookmarks sidebar">☰</button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-xs text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" id="btn-history" title="Toggle history sidebar (Cmd/Ctrl+H)">H</button>
-    <input id="address-bar" type="text" placeholder="Search or enter a URL…" spellcheck="false" class="h-8 flex-1 rounded-orb border border-orb-border bg-orb-surface px-3 text-[13px] text-orb-text outline-none transition focus:border-orb-accent" />
-    <button id="btn-float" title="Floating window (Cmd+Shift+O)" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-orb border-0 bg-orb-accent text-base text-white transition hover:bg-orb-accent-dim">◎</button>
+  <div id="navbar" class="flex items-center gap-1 bg-orb-bg px-3 pb-2 pt-1.5">
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-back" title="Back"></button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-forward" title="Forward"></button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-reload" title="Reload"></button>
+    <input id="address-bar" type="text" placeholder="Search or enter a URL…" spellcheck="false" class="mx-1 h-8 flex-1 rounded-orb border border-orb-border bg-orb-surface px-3 text-[13px] text-orb-text outline-none transition focus:border-orb-accent" />
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-bookmark" title="Bookmark this page (Ctrl+D)"></button>
+    <button id="btn-float" title="Floating search (Ctrl+Shift+O)" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0 bg-orb-accent text-white transition hover:bg-orb-accent-dim"></button>
+    <button id="btn-menu" title="Orb menu" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text"></button>
   </div>
 
   <div id="bookmark-bar" class="flex items-center gap-1 border-y border-orb-border bg-orb-surface px-2 py-1">
