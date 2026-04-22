@@ -7,6 +7,9 @@ import {
   parseBrowserBoundsPayload,
   parseFloatNavigatePayload,
   parseHistorySnapshotsPayload,
+  parseMenuActionPayload,
+  parseMenuInitPayload,
+  parseMenuShowPayload,
   parseTabIdPayload,
   parseTabNavigatePayload,
   parseTabsStateSnapshotPayload,
@@ -16,6 +19,9 @@ import type {
   BookmarkUpsertPayload,
   BrowserBounds,
   HistorySnapshot,
+  MenuAction,
+  MenuInitPayload,
+  MenuShowPayload,
   TabsStateSnapshot,
 } from '../shared/ipc-contract';
 
@@ -193,6 +199,54 @@ contextBridge.exposeInMainWorld('orb', {
 
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.HISTORY_CHANGED, handler);
+    };
+  },
+
+  showMenu: (payload: MenuShowPayload) => {
+    const safePayload = parseMenuShowPayload(payload);
+    if (!safePayload) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer.invoke(IPC_CHANNELS.MENU_SHOW, safePayload).then(() => undefined);
+  },
+
+  menuAction: (action: MenuAction) => {
+    const safeAction = parseMenuActionPayload(action);
+    if (!safeAction) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer.invoke(IPC_CHANNELS.MENU_ACTION, safeAction).then(() => undefined);
+  },
+
+  onMenuAction: (callback: (action: MenuAction) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+      const action = parseMenuActionPayload(payload);
+      if (action) {
+        callback(action);
+      }
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.MENU_ACTION_RELAY, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.MENU_ACTION_RELAY, handler);
+    };
+  },
+
+  onMenuInit: (callback: (state: MenuInitPayload) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+      const state = parseMenuInitPayload(payload);
+      if (state) {
+        callback(state);
+      }
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.MENU_INIT, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.MENU_INIT, handler);
     };
   },
 

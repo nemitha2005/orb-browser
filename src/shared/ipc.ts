@@ -6,14 +6,21 @@ import type {
   BookmarkUpsertPayload,
   BrowserBounds,
   HistorySnapshot,
+  MenuAction,
+  MenuInitPayload,
+  MenuShowPayload,
   TabsStateSnapshot,
 } from './ipc-contract';
-export { IPC_CHANNELS } from './ipc-contract';
+import { MENU_ACTIONS } from './ipc-contract';
+export { IPC_CHANNELS, MENU_ACTIONS } from './ipc-contract';
 export type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
   HistorySnapshot,
+  MenuAction,
+  MenuInitPayload,
+  MenuShowPayload,
   TabSnapshot,
   TabsStateSnapshot,
 } from './ipc-contract';
@@ -142,4 +149,42 @@ export function parseBookmarksSnapshotPayload(payload: unknown): BookmarkSnapsho
 export function parseHistorySnapshotsPayload(payload: unknown): HistorySnapshot[] | null {
   const parsedPayload = HistorySnapshotsPayloadSchema.safeParse(payload);
   return parsedPayload.success ? parsedPayload.data : null;
+}
+
+const MenuActionPayloadSchema = z.enum(
+  Object.values(MENU_ACTIONS) as [MenuAction, ...MenuAction[]],
+);
+
+const MenuShowPayloadSchema = z.object({
+  screenX: z.number(),
+  screenY: z.number(),
+  isBookmarkBarVisible: z.boolean(),
+  theme: z.enum(['light', 'dark']),
+});
+
+export function parseMenuActionPayload(payload: unknown): MenuAction | null {
+  const result = MenuActionPayloadSchema.safeParse(payload);
+  return result.success ? result.data : null;
+}
+
+export function parseMenuShowPayload(payload: unknown): MenuShowPayload | null {
+  const result = MenuShowPayloadSchema.safeParse(payload);
+  return result.success ? result.data : null;
+}
+
+export function parseMenuInitPayload(payload: unknown): MenuInitPayload | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const p = payload as Record<string, unknown>;
+  if (typeof p.isBookmarkBarVisible !== 'boolean') {
+    return null;
+  }
+
+  if (p.theme !== 'light' && p.theme !== 'dark') {
+    return null;
+  }
+
+  return { isBookmarkBarVisible: p.isBookmarkBarVisible, theme: p.theme };
 }

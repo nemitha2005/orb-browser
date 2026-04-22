@@ -5,6 +5,9 @@ import type {
   BookmarkUpsertPayload,
   BrowserBounds,
   HistorySnapshot,
+  MenuAction,
+  MenuInitPayload,
+  MenuShowPayload,
   TabsStateSnapshot,
 } from '../shared/ipc-contract';
 
@@ -32,6 +35,10 @@ declare global {
       getHistory: () => Promise<HistorySnapshot[]>;
       clearHistory: () => Promise<HistorySnapshot[]>;
       onHistoryChanged: (callback: (history: HistorySnapshot[]) => void) => () => void;
+      showMenu: (payload: MenuShowPayload) => Promise<void>;
+      menuAction: (action: MenuAction) => Promise<void>;
+      onMenuAction: (callback: (action: MenuAction) => void) => () => void;
+      onMenuInit: (callback: (state: MenuInitPayload) => void) => () => void;
       platform: string;
     };
   }

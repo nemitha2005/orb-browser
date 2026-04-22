@@ -3,15 +3,18 @@ import type {
   BookmarkSnapshot,
   BrowserBounds,
   HistorySnapshot,
+  MenuAction,
   TabSnapshot,
   TabsStateSnapshot,
 } from '../shared/ipc-contract';
+import { MENU_ACTIONS } from '../shared/ipc-contract';
 import {
   requestNavigateActiveTab,
   requestTabClose,
   requestTabCloseIfActive,
   requestTabCreate,
 } from './interaction';
+import { ICONS } from './icons';
 import {
   getNextTheme,
   getThemeToggleMeta,
@@ -66,20 +69,25 @@ const newTabSearch = document.getElementById('new-tab-search') as HTMLInputEleme
 const btnBack = document.getElementById('btn-back') as HTMLButtonElement;
 const btnForward = document.getElementById('btn-forward') as HTMLButtonElement;
 const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
-const btnTheme = document.getElementById('btn-theme') as HTMLButtonElement;
 const btnBookmark = document.getElementById('btn-bookmark') as HTMLButtonElement;
-const btnBookmarkBar = document.getElementById('btn-bookmark-bar') as HTMLButtonElement;
-const btnBookmarks = document.getElementById('btn-bookmarks') as HTMLButtonElement;
-const btnHistory = document.getElementById('btn-history') as HTMLButtonElement;
 const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
+const btnMenu = document.getElementById('btn-menu') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
 const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+// Set static SVG icons that never change
+btnBack.innerHTML = ICONS.back;
+btnForward.innerHTML = ICONS.forward;
+btnReload.innerHTML = ICONS.reload;
+btnFloat.innerHTML = ICONS.float;
+btnMenu.innerHTML = ICONS.menu;
 
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
 let unsubscribeBookmarks: (() => void) | null = null;
 let unsubscribeHistory: (() => void) | null = null;
+let unsubscribeMenuAction: (() => void) | null = null;
 
 function getStoredBookmarkBarVisibility(): boolean {
   try {
@@ -132,8 +140,7 @@ function applyTheme(theme: 'light' | 'dark'): void {
   document.documentElement.dataset.theme = theme;
 
   const themeToggleMeta = getThemeToggleMeta(theme);
-  btnTheme.textContent = themeToggleMeta.icon;
-  btnTheme.title = themeToggleMeta.title;
+  btnFloat.title = `Floating search (Ctrl+Shift+O) — ${themeToggleMeta.title}`;
 }
 
 function syncThemeFromEnvironment(): void {
@@ -268,7 +275,7 @@ function renderTabs(): void {
     tabElement.dataset.id = String(tab.id);
     tabElement.innerHTML = `
       <span class="tab-title">${escapeHtml(tab.title || 'New Tab')}</span>
-      <button class="tab-close" data-close-id="${tab.id}">X</button>
+      <button class="tab-close" data-close-id="${tab.id}">✕</button>
     `;
 
     tabsContainer.appendChild(tabElement);
@@ -291,25 +298,12 @@ function renderBookmarkControls(): void {
   const activeBookmark = getActiveBookmark();
 
   btnBookmark.disabled = !activeTab?.url;
-  btnBookmark.textContent = activeBookmark ? '★' : '☆';
+  btnBookmark.innerHTML = activeBookmark ? ICONS.starFilled : ICONS.starEmpty;
+  btnBookmark.classList.toggle('text-orb-accent', !!activeBookmark);
+  btnBookmark.classList.toggle('text-orb-text-dim', !activeBookmark);
   btnBookmark.title = activeBookmark
-    ? 'Remove bookmark from this page (Cmd/Ctrl+D)'
-    : 'Save bookmark for this page (Cmd/Ctrl+D)';
-
-  btnBookmarkBar.textContent = state.isBookmarkBarVisible ? '▤' : '▥';
-  btnBookmarkBar.title = state.isBookmarkBarVisible
-    ? 'Hide bookmarks bar (Cmd/Ctrl+Shift+B)'
-    : 'Show bookmarks bar (Cmd/Ctrl+Shift+B)';
-
-  btnBookmarks.textContent = state.isBookmarksSidebarOpen ? '×' : '☰';
-  btnBookmarks.title = state.isBookmarksSidebarOpen
-    ? 'Hide bookmarks sidebar'
-    : 'Show bookmarks sidebar';
-
-  btnHistory.textContent = state.isHistorySidebarOpen ? '×' : 'H';
-  btnHistory.title = state.isHistorySidebarOpen
-    ? 'Hide history sidebar (Cmd/Ctrl+H)'
-    : 'Show history sidebar (Cmd/Ctrl+H)';
+    ? 'Remove bookmark from this page (Ctrl+D)'
+    : 'Save bookmark for this page (Ctrl+D)';
 }
 
 function renderBookmarkEditor(): void {
@@ -496,8 +490,6 @@ function navigate(input: string): void {
   }
 
   closeBookmarkEditor();
-
-  // Main process normalizes this to URL/search and performs navigation safely.
   newTabSearch.value = '';
 }
 
@@ -507,6 +499,42 @@ function activateTab(tabId: number): void {
 
 function closeTab(tabId: number): void {
   requestTabClose(window.orb, tabId);
+}
+
+function openMenu(): void {
+  const rect = btnMenu.getBoundingClientRect();
+  void window.orb.showMenu({
+    screenX: window.screenX + Math.round(rect.right),
+    screenY: window.screenY + Math.round(rect.bottom),
+    isBookmarkBarVisible: state.isBookmarkBarVisible,
+    theme: getCurrentTheme(),
+  });
+}
+
+function handleMenuAction(action: MenuAction): void {
+  switch (action) {
+    case MENU_ACTIONS.NEW_TAB:
+      requestTabCreate(window.orb);
+      break;
+    case MENU_ACTIONS.TOGGLE_BOOKMARKS:
+      toggleBookmarksSidebar();
+      break;
+    case MENU_ACTIONS.TOGGLE_HISTORY:
+      toggleHistorySidebar();
+      break;
+    case MENU_ACTIONS.TOGGLE_BOOKMARK_BAR:
+      toggleBookmarkBar();
+      break;
+    case MENU_ACTIONS.TOGGLE_THEME: {
+      const nextTheme = getNextTheme(getCurrentTheme());
+      setStoredTheme(nextTheme);
+      applyTheme(nextTheme);
+      break;
+    }
+    case MENU_ACTIONS.OPEN_FLOAT_SEARCH:
+      void window.orb.toggleFloat();
+      break;
+  }
 }
 
 btnNewTab.addEventListener('click', () => {
@@ -525,26 +553,8 @@ btnReload.addEventListener('click', () => {
   void window.orb.reload();
 });
 
-btnTheme.addEventListener('click', () => {
-  const nextTheme = getNextTheme(getCurrentTheme());
-  setStoredTheme(nextTheme);
-  applyTheme(nextTheme);
-});
-
 btnBookmark.addEventListener('click', () => {
   triggerBookmarkAction();
-});
-
-btnBookmarkBar.addEventListener('click', () => {
-  toggleBookmarkBar();
-});
-
-btnBookmarks.addEventListener('click', () => {
-  toggleBookmarksSidebar();
-});
-
-btnHistory.addEventListener('click', () => {
-  toggleHistorySidebar();
 });
 
 btnHistoryClear.addEventListener('click', () => {
@@ -553,6 +563,10 @@ btnHistoryClear.addEventListener('click', () => {
 
 btnFloat.addEventListener('click', () => {
   void window.orb.toggleFloat();
+});
+
+btnMenu.addEventListener('click', () => {
+  openMenu();
 });
 
 bookmarkEditorSave.addEventListener('click', () => {
@@ -732,6 +746,10 @@ unsubscribeHistory = window.orb.onHistoryChanged(nextHistory => {
   applyHistory(nextHistory);
 });
 
+unsubscribeMenuAction = window.orb.onMenuAction(action => {
+  handleMenuAction(action);
+});
+
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.isBookmarkEditorOpen) {
     event.preventDefault();
@@ -807,6 +825,9 @@ window.addEventListener('beforeunload', () => {
 
   unsubscribeHistory?.();
   unsubscribeHistory = null;
+
+  unsubscribeMenuAction?.();
+  unsubscribeMenuAction = null;
 });
 
 window.orb.getBookmarks().then(initialBookmarks => {

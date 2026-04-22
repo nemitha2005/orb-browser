@@ -40,6 +40,29 @@ export interface HistorySnapshot {
   lastVisitedAt: string;
 }
 
+export const MENU_ACTIONS = {
+  NEW_TAB: 'new-tab',
+  TOGGLE_BOOKMARKS: 'toggle-bookmarks',
+  TOGGLE_HISTORY: 'toggle-history',
+  TOGGLE_BOOKMARK_BAR: 'toggle-bookmark-bar',
+  TOGGLE_THEME: 'toggle-theme',
+  OPEN_FLOAT_SEARCH: 'open-float-search',
+} as const;
+
+export type MenuAction = (typeof MENU_ACTIONS)[keyof typeof MENU_ACTIONS];
+
+export interface MenuShowPayload {
+  screenX: number;
+  screenY: number;
+  isBookmarkBarVisible: boolean;
+  theme: 'light' | 'dark';
+}
+
+export interface MenuInitPayload {
+  isBookmarkBarVisible: boolean;
+  theme: 'light' | 'dark';
+}
+
 export const IPC_CHANNELS = {
   TOGGLE_FLOAT: 'toggle-float',
   FLOAT_NAVIGATE: 'float-navigate',
@@ -62,4 +85,8 @@ export const IPC_CHANNELS = {
   HISTORY_GET: 'history-get',
   HISTORY_CLEAR: 'history-clear',
   HISTORY_CHANGED: 'history-changed',
+  MENU_SHOW: 'menu-show',
+  MENU_INIT: 'menu-init',
+  MENU_ACTION: 'menu-action',
+  MENU_ACTION_RELAY: 'menu-action-relay',
 } as const;
