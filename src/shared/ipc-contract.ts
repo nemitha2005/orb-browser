@@ -74,6 +74,7 @@ export const IPC_CHANNELS = {
   TAB_GO_BACK: 'tab-go-back',
   TAB_GO_FORWARD: 'tab-go-forward',
   TAB_RELOAD: 'tab-reload',
+  TAB_STOP: 'tab-stop',
   TAB_SET_BOUNDS: 'tab-set-bounds',
   TABS_GET_STATE: 'tabs-get-state',
   TABS_STATE_CHANGED: 'tabs-state-changed',

@@ -76,7 +76,17 @@
   }
 }
 
+@keyframes orb-loading-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(500%); }
+}
+
 @layer components {
+  .orb-loading-fill {
+    animation: orb-loading-sweep 1.4s ease-in-out infinite;
+    transform-origin: left center;
+  }
+
   .tab {
     @apply [-webkit-app-region:no-drag] flex max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-orb border border-orb-border bg-orb-surface px-2.5 py-[5px] text-xs text-orb-text-dim transition;
   }

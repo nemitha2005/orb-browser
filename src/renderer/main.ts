@@ -74,6 +74,7 @@ const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButt
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnMenu = document.getElementById('btn-menu') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
+const loadingBar = document.getElementById('loading-bar') as HTMLDivElement;
 const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 // Set static SVG icons that never change
@@ -284,10 +285,23 @@ function renderTabs(): void {
 
 function renderNavigation(): void {
   const activeTab = getActiveTab();
+  const isLoading = activeTab?.isLoading ?? false;
 
   addressBar.value = activeTab?.url ?? '';
   btnBack.disabled = !(activeTab && activeTab.canGoBack);
   btnForward.disabled = !(activeTab && activeTab.canGoForward);
+
+  if (isLoading) {
+    btnReload.innerHTML = ICONS.stop;
+    btnReload.title = 'Stop loading';
+    btnReload.disabled = false;
+  } else {
+    btnReload.innerHTML = ICONS.reload;
+    btnReload.title = 'Reload';
+    btnReload.disabled = !activeTab?.url;
+  }
+
+  loadingBar.classList.toggle('hidden', !isLoading);
 
   // Tabs without a URL are treated as "new tab" state by the main process.
   newTabPage.style.display = activeTab?.url ? 'none' : 'flex';
@@ -550,7 +564,12 @@ btnForward.addEventListener('click', () => {
 });
 
 btnReload.addEventListener('click', () => {
-  void window.orb.reload();
+  const activeTab = getActiveTab();
+  if (activeTab?.isLoading) {
+    void window.orb.stop();
+  } else {
+    void window.orb.reload();
+  }
 });
 
 btnBookmark.addEventListener('click', () => {
