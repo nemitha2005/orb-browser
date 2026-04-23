@@ -39,7 +39,7 @@
     <button id="bookmark-editor-cancel" class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-surface px-2.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Cancel</button>
   </div>
 
-  <div id="browser-layout" class="flex flex-1 overflow-hidden">
+  <div id="browser-layout" class="relative flex flex-1 overflow-hidden">
     <div id="browser-area" class="relative flex-1 overflow-hidden bg-white">
       <div id="new-tab-page" class="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-orb-bg">
         <h1 class="bg-gradient-to-br from-orb-accent to-orange-300 bg-clip-text text-[52px] font-extrabold tracking-[-2px] text-transparent">Orb</h1>
@@ -54,23 +54,54 @@
       </div>
     </div>
 
-    <aside id="bookmarks-sidebar" class="hidden w-[320px] shrink-0 border-l border-orb-border bg-orb-surface">
+    <aside id="bookmarks-sidebar" class="hidden flex w-[320px] shrink-0 flex-col border-l border-orb-border bg-orb-surface">
       <div class="flex items-center justify-between border-b border-orb-border px-3 py-2">
         <h2 class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">Bookmarks</h2>
-        <span class="text-[11px] text-orb-text-dim">Sidebar</span>
+        <button id="btn-bookmarks-close" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" title="Close bookmarks sidebar">Close</button>
       </div>
-      <ul id="bookmarks-list" class="max-h-full overflow-y-auto px-2 py-2"></ul>
+      <ul id="bookmarks-list" class="max-h-full flex-1 overflow-y-auto px-2 py-2"></ul>
       <p id="bookmarks-empty" class="px-3 py-4 text-sm text-orb-text-dim">No bookmarks yet. Open a page and press the star.</p>
+      <div class="border-t border-orb-border px-3 py-2">
+        <button id="btn-bookmarks-detailed" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">See detailed bookmarks view</button>
+      </div>
     </aside>
 
-    <aside id="history-sidebar" class="hidden w-[360px] shrink-0 border-l border-orb-border bg-orb-surface">
+    <aside id="history-sidebar" class="hidden flex w-[360px] shrink-0 flex-col border-l border-orb-border bg-orb-surface">
       <div class="flex items-center justify-between border-b border-orb-border px-3 py-2">
         <h2 class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">History</h2>
-        <button id="btn-history-clear" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Clear</button>
+        <div class="flex items-center gap-1">
+          <button id="btn-history-clear" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Clear</button>
+          <button id="btn-history-close" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" title="Close history sidebar">Close</button>
+        </div>
       </div>
-      <ul id="history-list" class="max-h-full overflow-y-auto px-2 py-2"></ul>
+      <ul id="history-list" class="max-h-full flex-1 overflow-y-auto px-2 py-2"></ul>
       <p id="history-empty" class="px-3 py-4 text-sm text-orb-text-dim">No history yet. Start browsing and entries will appear here.</p>
+      <div class="border-t border-orb-border px-3 py-2">
+        <button id="btn-history-detailed" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">See detailed history view</button>
+      </div>
     </aside>
+
+    <div id="full-page-view" class="absolute inset-0 hidden overflow-y-auto bg-orb-bg px-4 py-4">
+      <div class="mx-auto flex w-full max-w-[980px] flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-orb-border pb-2">
+          <h2 id="full-page-title" class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">Detailed View</h2>
+          <button id="btn-full-page-close" class="rounded-orb border border-orb-border bg-orb-surface px-2.5 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Close</button>
+        </div>
+
+        <div id="full-page-bookmarks" class="hidden">
+          <div id="full-page-bookmarks-list" class="grid grid-cols-1 gap-2 md:grid-cols-2"></div>
+          <p id="full-page-bookmarks-empty" class="mt-4 text-sm text-orb-text-dim">No bookmarks yet.</p>
+        </div>
+
+        <div id="full-page-history" class="hidden">
+          <div class="mb-2 flex justify-end">
+            <button id="btn-full-page-history-clear" class="rounded-orb border border-orb-border bg-orb-surface px-2.5 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Clear history</button>
+          </div>
+          <ul id="full-page-history-list" class="space-y-2"></ul>
+          <p id="full-page-history-empty" class="mt-4 text-sm text-orb-text-dim">No history yet.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./main.ts"></script>

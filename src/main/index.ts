@@ -110,6 +110,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeNavigatedUrl(rawUrl: string | null): string | null {
+  return rawUrl && isHttpNavigationUrl(rawUrl) ? rawUrl : null;
+}
+
 // ERR_ABORTED (-3) fires when a page redirects mid-load — not a real failure.
 function isAbortError(error: unknown): boolean {
   return (
@@ -435,12 +439,14 @@ function configureTabEvents(tab: ManagedTab): void {
   });
 
   webContents.on('did-stop-loading', () => {
-    const currentUrl = webContents.getURL() || null;
+    const currentUrl = normalizeNavigatedUrl(webContents.getURL() || null);
     const currentTitle = webContents.getTitle() || null;
 
     syncTabFromContents(webContents.id, entry => {
       entry.isLoading = false;
-      entry.url = currentUrl;
+      if (currentUrl) {
+        entry.url = currentUrl;
+      }
       entry.title = currentTitle || entry.title;
     });
 
@@ -448,14 +454,24 @@ function configureTabEvents(tab: ManagedTab): void {
   });
 
   webContents.on('did-navigate', (_event, navigationUrl) => {
+    const currentUrl = normalizeNavigatedUrl(navigationUrl);
+    if (!currentUrl) {
+      return;
+    }
+
     syncTabFromContents(webContents.id, entry => {
-      entry.url = navigationUrl;
+      entry.url = currentUrl;
     });
   });
 
   webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
+    const currentUrl = normalizeNavigatedUrl(navigationUrl);
+    if (!currentUrl) {
+      return;
+    }
+
     syncTabFromContents(webContents.id, entry => {
-      entry.url = navigationUrl;
+      entry.url = currentUrl;
     });
   });
 
