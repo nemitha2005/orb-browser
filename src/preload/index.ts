@@ -92,6 +92,8 @@ contextBridge.exposeInMainWorld('orb', {
 
   reload: () => ipcRenderer.invoke(IPC_CHANNELS.TAB_RELOAD).then(() => undefined),
 
+  stop: () => ipcRenderer.invoke(IPC_CHANNELS.TAB_STOP).then(() => undefined),
+
   setBrowserBounds: (bounds: BrowserBounds) => {
     const safeBounds = parseBrowserBoundsPayload(bounds);
     if (!safeBounds) {

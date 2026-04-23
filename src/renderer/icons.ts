@@ -53,4 +53,5 @@ export const ICONS = {
   ),
   floatSearch: svg('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>', 14),
   check: svg('<polyline points="20 6 9 17 4 12"/>', 14),
+  stop: svgFilled('<rect x="6" y="6" width="12" height="12" rx="1.5"/>'),
 } as const;

@@ -32,6 +32,7 @@ interface RendererState {
   isBookmarkEditorOpen: boolean;
   isBookmarksSidebarOpen: boolean;
   isHistorySidebarOpen: boolean;
+  fullPageView: 'history' | 'bookmarks' | null;
 }
 
 const ORB_BOOKMARK_BAR_VISIBLE_KEY = 'orb-bookmark-bar-visible';
@@ -45,6 +46,7 @@ const state: RendererState = {
   isBookmarkEditorOpen: false,
   isBookmarksSidebarOpen: false,
   isHistorySidebarOpen: false,
+  fullPageView: null,
 };
 
 const tabsContainer = document.getElementById('tabs') as HTMLDivElement;
@@ -59,10 +61,24 @@ const bookmarkEditorCancel = document.getElementById('bookmark-editor-cancel') a
 const bookmarksSidebar = document.getElementById('bookmarks-sidebar') as HTMLDivElement;
 const bookmarksList = document.getElementById('bookmarks-list') as HTMLUListElement;
 const bookmarksEmpty = document.getElementById('bookmarks-empty') as HTMLParagraphElement;
+const btnBookmarksClose = document.getElementById('btn-bookmarks-close') as HTMLButtonElement;
+const btnBookmarksDetailed = document.getElementById('btn-bookmarks-detailed') as HTMLButtonElement;
 const historySidebar = document.getElementById('history-sidebar') as HTMLDivElement;
 const historyList = document.getElementById('history-list') as HTMLUListElement;
 const historyEmpty = document.getElementById('history-empty') as HTMLParagraphElement;
+const btnHistoryClose = document.getElementById('btn-history-close') as HTMLButtonElement;
+const btnHistoryDetailed = document.getElementById('btn-history-detailed') as HTMLButtonElement;
 const browserArea = document.getElementById('browser-area') as HTMLDivElement;
+const fullPageView = document.getElementById('full-page-view') as HTMLDivElement;
+const fullPageTitle = document.getElementById('full-page-title') as HTMLHeadingElement;
+const btnFullPageClose = document.getElementById('btn-full-page-close') as HTMLButtonElement;
+const fullPageBookmarks = document.getElementById('full-page-bookmarks') as HTMLDivElement;
+const fullPageBookmarksList = document.getElementById('full-page-bookmarks-list') as HTMLDivElement;
+const fullPageBookmarksEmpty = document.getElementById('full-page-bookmarks-empty') as HTMLParagraphElement;
+const fullPageHistory = document.getElementById('full-page-history') as HTMLDivElement;
+const fullPageHistoryList = document.getElementById('full-page-history-list') as HTMLUListElement;
+const fullPageHistoryEmpty = document.getElementById('full-page-history-empty') as HTMLParagraphElement;
+const btnFullPageHistoryClear = document.getElementById('btn-full-page-history-clear') as HTMLButtonElement;
 const newTabPage = document.getElementById('new-tab-page') as HTMLDivElement;
 const addressBar = document.getElementById('address-bar') as HTMLInputElement;
 const newTabSearch = document.getElementById('new-tab-search') as HTMLInputElement;
@@ -74,6 +90,7 @@ const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButt
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnMenu = document.getElementById('btn-menu') as HTMLButtonElement;
 const btnNewTab = document.getElementById('btn-new-tab') as HTMLButtonElement;
+const loadingBar = document.getElementById('loading-bar') as HTMLDivElement;
 const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 // Set static SVG icons that never change
@@ -263,7 +280,27 @@ function syncBrowserBounds(): void {
     height: Math.max(1, Math.round(rect.height)),
   };
 
+  if (state.fullPageView) {
+    bounds.y = Math.max(0, Math.round(rect.bottom - 1));
+    bounds.width = 1;
+    bounds.height = 1;
+  }
+
   void window.orb.setBrowserBounds(bounds);
+}
+
+function resolveInternalRoute(input: string): 'history' | 'bookmarks' | null {
+  const normalized = input.trim().toLowerCase();
+
+  if (normalized === 'orb/history' || normalized === 'orb://history') {
+    return 'history';
+  }
+
+  if (normalized === 'orb/bookmarks' || normalized === 'orb://bookmarks') {
+    return 'bookmarks';
+  }
+
+  return null;
 }
 
 function renderTabs(): void {
@@ -284,13 +321,33 @@ function renderTabs(): void {
 
 function renderNavigation(): void {
   const activeTab = getActiveTab();
+  const isLoading = activeTab?.isLoading ?? false;
 
-  addressBar.value = activeTab?.url ?? '';
+  if (state.fullPageView === 'history') {
+    addressBar.value = 'orb/history';
+  } else if (state.fullPageView === 'bookmarks') {
+    addressBar.value = 'orb/bookmarks';
+  } else {
+    addressBar.value = activeTab?.url ?? '';
+  }
+
   btnBack.disabled = !(activeTab && activeTab.canGoBack);
   btnForward.disabled = !(activeTab && activeTab.canGoForward);
 
+  if (isLoading) {
+    btnReload.innerHTML = ICONS.stop;
+    btnReload.title = 'Stop loading';
+    btnReload.disabled = false;
+  } else {
+    btnReload.innerHTML = ICONS.reload;
+    btnReload.title = 'Reload';
+    btnReload.disabled = !activeTab?.url;
+  }
+
+  loadingBar.classList.toggle('hidden', !isLoading);
+
   // Tabs without a URL are treated as "new tab" state by the main process.
-  newTabPage.style.display = activeTab?.url ? 'none' : 'flex';
+  newTabPage.style.display = !state.fullPageView && activeTab?.url ? 'none' : 'flex';
 }
 
 function renderBookmarkControls(): void {
@@ -405,6 +462,63 @@ function renderHistorySidebar(): void {
   });
 }
 
+function renderFullPageView(): void {
+  const activeView = state.fullPageView;
+  const isOpen = activeView !== null;
+
+  fullPageView.classList.toggle('hidden', !isOpen);
+  fullPageBookmarks.classList.toggle('hidden', activeView !== 'bookmarks');
+  fullPageHistory.classList.toggle('hidden', activeView !== 'history');
+
+  if (!isOpen) {
+    return;
+  }
+
+  if (activeView === 'bookmarks') {
+    fullPageTitle.textContent = 'Bookmarks';
+    fullPageBookmarksList.innerHTML = '';
+    const hasBookmarks = state.bookmarks.length > 0;
+    fullPageBookmarksEmpty.style.display = hasBookmarks ? 'none' : 'block';
+
+    state.bookmarks.forEach(bookmark => {
+      const card = document.createElement('article');
+      card.className =
+        'flex items-start gap-2 rounded-orb border border-orb-border bg-orb-surface px-3 py-2';
+      card.innerHTML = `
+        <button class="min-w-0 flex-1 bg-transparent text-left" data-full-bookmark-open-id="${bookmark.id}" title="${escapeHtml(bookmark.url)}">
+          <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
+          <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-orb-text-dim">${escapeHtml(bookmark.url)}</span>
+        </button>
+        <button class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" data-full-bookmark-remove-id="${bookmark.id}">Remove</button>
+      `;
+
+      fullPageBookmarksList.appendChild(card);
+    });
+
+    return;
+  }
+
+  fullPageTitle.textContent = 'History';
+  fullPageHistoryList.innerHTML = '';
+  const hasHistory = state.history.length > 0;
+  fullPageHistoryEmpty.style.display = hasHistory ? 'none' : 'block';
+  btnFullPageHistoryClear.disabled = !hasHistory;
+
+  state.history.forEach(historyEntry => {
+    const row = document.createElement('li');
+    row.className = 'rounded-orb border border-orb-border bg-orb-surface px-3 py-2';
+    row.innerHTML = `
+      <button class="w-full bg-transparent text-left" data-full-history-open-id="${historyEntry.id}" title="${escapeHtml(historyEntry.url)}">
+        <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-orb-text">${escapeHtml(historyEntry.title || historyEntry.url)}</span>
+        <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-orb-text-dim">${escapeHtml(historyEntry.url)}</span>
+        <span class="mt-1 block text-[11px] text-orb-text-dim">${escapeHtml(formatHistoryTimestamp(historyEntry.lastVisitedAt))} • ${historyEntry.visitCount} visits</span>
+      </button>
+    `;
+
+    fullPageHistoryList.appendChild(row);
+  });
+}
+
 function render(): void {
   renderTabs();
   renderNavigation();
@@ -413,6 +527,7 @@ function render(): void {
   renderBookmarkEditor();
   renderBookmarksSidebar();
   renderHistorySidebar();
+  renderFullPageView();
 }
 
 function applyState(nextState: TabsStateSnapshot): void {
@@ -433,6 +548,10 @@ function applyHistory(nextHistory: HistorySnapshot[]): void {
 }
 
 function setBookmarksSidebarOpen(isOpen: boolean): void {
+  if (state.fullPageView) {
+    state.fullPageView = null;
+  }
+
   if (isOpen) {
     state.isHistorySidebarOpen = false;
   }
@@ -451,6 +570,10 @@ function toggleBookmarksSidebar(): void {
 }
 
 function setHistorySidebarOpen(isOpen: boolean): void {
+  if (state.fullPageView) {
+    state.fullPageView = null;
+  }
+
   if (isOpen) {
     state.isBookmarksSidebarOpen = false;
   }
@@ -483,7 +606,35 @@ function toggleBookmarkBar(): void {
   setBookmarkBarVisible(!state.isBookmarkBarVisible);
 }
 
+function setFullPageView(view: 'history' | 'bookmarks' | null): void {
+  if (state.fullPageView === view) {
+    return;
+  }
+
+  state.fullPageView = view;
+
+  if (view) {
+    state.isBookmarksSidebarOpen = false;
+    state.isHistorySidebarOpen = false;
+    closeBookmarkEditor();
+  }
+
+  render();
+  syncBrowserBounds();
+}
+
 function navigate(input: string): void {
+  const internalRoute = resolveInternalRoute(input);
+  if (internalRoute) {
+    setFullPageView(internalRoute);
+    newTabSearch.value = '';
+    return;
+  }
+
+  if (state.fullPageView) {
+    state.fullPageView = null;
+  }
+
   const value = requestNavigateActiveTab(window.orb, input);
   if (!value) {
     return;
@@ -550,7 +701,12 @@ btnForward.addEventListener('click', () => {
 });
 
 btnReload.addEventListener('click', () => {
-  void window.orb.reload();
+  const activeTab = getActiveTab();
+  if (activeTab?.isLoading) {
+    void window.orb.stop();
+  } else {
+    void window.orb.reload();
+  }
 });
 
 btnBookmark.addEventListener('click', () => {
@@ -558,6 +714,30 @@ btnBookmark.addEventListener('click', () => {
 });
 
 btnHistoryClear.addEventListener('click', () => {
+  void window.orb.clearHistory().then(applyHistory);
+});
+
+btnBookmarksClose.addEventListener('click', () => {
+  setBookmarksSidebarOpen(false);
+});
+
+btnHistoryClose.addEventListener('click', () => {
+  setHistorySidebarOpen(false);
+});
+
+btnBookmarksDetailed.addEventListener('click', () => {
+  setFullPageView('bookmarks');
+});
+
+btnHistoryDetailed.addEventListener('click', () => {
+  setFullPageView('history');
+});
+
+btnFullPageClose.addEventListener('click', () => {
+  setFullPageView(null);
+});
+
+btnFullPageHistoryClear.addEventListener('click', () => {
   void window.orb.clearHistory().then(applyHistory);
 });
 
@@ -729,6 +909,65 @@ historyList.addEventListener('click', event => {
   navigate(historyEntry.url);
 });
 
+fullPageBookmarksList.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const removeTarget = target.closest<HTMLElement>('[data-full-bookmark-remove-id]');
+  if (removeTarget) {
+    const bookmarkId = Number(removeTarget.getAttribute('data-full-bookmark-remove-id'));
+    if (Number.isInteger(bookmarkId) && bookmarkId > 0) {
+      void window.orb.removeBookmark(bookmarkId).then(applyBookmarks);
+    }
+    return;
+  }
+
+  const openTarget = target.closest<HTMLElement>('[data-full-bookmark-open-id]');
+  if (!openTarget) {
+    return;
+  }
+
+  const bookmarkId = Number(openTarget.getAttribute('data-full-bookmark-open-id'));
+  if (!Number.isInteger(bookmarkId) || bookmarkId <= 0) {
+    return;
+  }
+
+  const bookmark = state.bookmarks.find(entry => entry.id === bookmarkId);
+  if (!bookmark) {
+    return;
+  }
+
+  setFullPageView(null);
+  navigate(bookmark.url);
+});
+
+fullPageHistoryList.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const openTarget = target.closest<HTMLElement>('[data-full-history-open-id]');
+  if (!openTarget) {
+    return;
+  }
+
+  const historyId = Number(openTarget.getAttribute('data-full-history-open-id'));
+  if (!Number.isInteger(historyId) || historyId <= 0) {
+    return;
+  }
+
+  const historyEntry = state.history.find(entry => entry.id === historyId);
+  if (!historyEntry) {
+    return;
+  }
+
+  setFullPageView(null);
+  navigate(historyEntry.url);
+});
+
 unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
   // Float window already triggers main-process navigation; we mirror address text here.
   addressBar.value = url;
@@ -754,6 +993,12 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.isBookmarkEditorOpen) {
     event.preventDefault();
     closeBookmarkEditor();
+    return;
+  }
+
+  if (event.key === 'Escape' && state.fullPageView) {
+    event.preventDefault();
+    setFullPageView(null);
     return;
   }
 

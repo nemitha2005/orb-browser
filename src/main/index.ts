@@ -110,6 +110,20 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeNavigatedUrl(rawUrl: string | null): string | null {
+  return rawUrl && isHttpNavigationUrl(rawUrl) ? rawUrl : null;
+}
+
+// ERR_ABORTED (-3) fires when a page redirects mid-load — not a real failure.
+function isAbortError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code: unknown }).code === 'ERR_ABORTED'
+  );
+}
+
 function getActiveTab(): ManagedTab | undefined {
   if (!activeTabId) {
     return undefined;
@@ -425,12 +439,14 @@ function configureTabEvents(tab: ManagedTab): void {
   });
 
   webContents.on('did-stop-loading', () => {
-    const currentUrl = webContents.getURL() || null;
+    const currentUrl = normalizeNavigatedUrl(webContents.getURL() || null);
     const currentTitle = webContents.getTitle() || null;
 
     syncTabFromContents(webContents.id, entry => {
       entry.isLoading = false;
-      entry.url = currentUrl;
+      if (currentUrl) {
+        entry.url = currentUrl;
+      }
       entry.title = currentTitle || entry.title;
     });
 
@@ -438,14 +454,24 @@ function configureTabEvents(tab: ManagedTab): void {
   });
 
   webContents.on('did-navigate', (_event, navigationUrl) => {
+    const currentUrl = normalizeNavigatedUrl(navigationUrl);
+    if (!currentUrl) {
+      return;
+    }
+
     syncTabFromContents(webContents.id, entry => {
-      entry.url = navigationUrl;
+      entry.url = currentUrl;
     });
   });
 
   webContents.on('did-navigate-in-page', (_event, navigationUrl) => {
+    const currentUrl = normalizeNavigatedUrl(navigationUrl);
+    if (!currentUrl) {
+      return;
+    }
+
     syncTabFromContents(webContents.id, entry => {
-      entry.url = navigationUrl;
+      entry.url = currentUrl;
     });
   });
 
@@ -482,7 +508,9 @@ function createManagedTab(initialUrl: string | null): ManagedTab {
 
   if (initialUrl) {
     tab.view.webContents.loadURL(initialUrl).catch(error => {
-      console.error('[main] failed to load URL', error);
+      if (!isAbortError(error)) {
+        console.error('[main] failed to load URL', error);
+      }
     });
   }
 
@@ -567,7 +595,9 @@ function navigateActiveTab(rawInput: string): void {
   activeTab.url = rawInput;
   attachActiveTabView();
   activeTab.view.webContents.loadURL(rawInput).catch(error => {
-    console.error('[main] failed to navigate tab', error);
+    if (!isAbortError(error)) {
+      console.error('[main] failed to navigate tab', error);
+    }
   });
 
   emitTabsState();
@@ -914,6 +944,10 @@ ipcMain.handle(IPC_CHANNELS.TAB_RELOAD, () => {
   }
 
   activeTab.view.webContents.reload();
+});
+
+ipcMain.handle(IPC_CHANNELS.TAB_STOP, () => {
+  getActiveTab()?.view.webContents.stop();
 });
 
 ipcMain.handle(IPC_CHANNELS.TAB_SET_BOUNDS, (_event, payload: unknown) => {
