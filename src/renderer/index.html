@@ -49,7 +49,8 @@
           <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+T</kbd> new tab &nbsp;·&nbsp;
           <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+W</kbd> close tab &nbsp;·&nbsp;
           <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+D</kbd> bookmark page &nbsp;·&nbsp;
-          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+H</kbd> history
+          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+H</kbd> history &nbsp;·&nbsp;
+          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+J</kbd> downloads
         </p>
       </div>
     </div>
@@ -99,6 +100,18 @@
           </div>
           <ul id="full-page-history-list" class="space-y-2"></ul>
           <p id="full-page-history-empty" class="mt-4 text-sm text-orb-text-dim">No history yet.</p>
+        </div>
+
+        <div id="full-page-downloads" class="hidden">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-orb border border-orb-border bg-orb-surface px-3 py-2">
+            <div class="min-w-0">
+              <p class="text-[10px] uppercase tracking-[1px] text-orb-text-dim">Download folder</p>
+              <p id="download-directory-value" class="max-w-[70vw] overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">Not set</p>
+            </div>
+            <button id="btn-download-directory-select" class="shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2.5 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Change folder</button>
+          </div>
+          <div id="full-page-downloads-list" class="grid grid-cols-1 gap-2"></div>
+          <p id="full-page-downloads-empty" class="mt-4 text-sm text-orb-text-dim">No downloads yet.</p>
         </div>
       </div>
     </div>
