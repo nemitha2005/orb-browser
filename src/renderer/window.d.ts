@@ -4,6 +4,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
   MenuInitPayload,
@@ -34,6 +35,14 @@ declare global {
       removeBookmark: (bookmarkId: number) => Promise<BookmarkSnapshot[]>;
       onBookmarksChanged: (callback: (bookmarks: BookmarkSnapshot[]) => void) => () => void;
       getHistory: () => Promise<HistorySnapshot[]>;
+      getDownloads: () => Promise<DownloadSnapshot[]>;
+      getDownloadDirectory: () => Promise<string>;
+      selectDownloadDirectory: () => Promise<string>;
+      pauseDownload: (downloadId: string) => Promise<void>;
+      resumeDownload: (downloadId: string) => Promise<void>;
+      cancelDownload: (downloadId: string) => Promise<void>;
+      removeDownload: (downloadId: string) => Promise<void>;
+      onDownloadsChanged: (callback: (downloads: DownloadSnapshot[]) => void) => () => void;
       clearHistory: () => Promise<HistorySnapshot[]>;
       onHistoryChanged: (callback: (history: HistorySnapshot[]) => void) => () => void;
       showMenu: (payload: MenuShowPayload) => Promise<void>;

@@ -5,6 +5,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
   MenuInitPayload,
@@ -17,6 +18,7 @@ export type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
   MenuInitPayload,
@@ -71,6 +73,23 @@ const HistorySnapshotPayloadSchema = z.object({
   lastVisitedAt: z.string(),
 });
 const HistorySnapshotsPayloadSchema = z.array(HistorySnapshotPayloadSchema);
+const DownloadSnapshotPayloadSchema = z.object({
+  id: z.string().trim().min(1),
+  url: z.string().trim().min(1),
+  fileName: z.string(),
+  savePath: z.string().trim().min(1),
+  totalBytes: z.number().int().nonnegative(),
+  receivedBytes: z.number().int().nonnegative(),
+  percent: z.number().min(0).max(100),
+  state: z.enum(['progressing', 'paused', 'completed', 'cancelled', 'interrupted']),
+  startedAt: z.string(),
+  updatedAt: z.string(),
+  speedBytesPerSecond: z.number().int().nonnegative(),
+  canResume: z.boolean(),
+});
+const DownloadSnapshotsPayloadSchema = z.array(DownloadSnapshotPayloadSchema);
+const DownloadIdPayloadSchema = z.string().trim().min(1).max(120);
+const DownloadDirectoryPayloadSchema = z.string().trim().min(1).max(4096);
 
 export function parseFloatNavigatePayload(payload: unknown): string | null {
   const parsedPayload = FloatNavigatePayloadSchema.safeParse(payload);
@@ -148,6 +167,21 @@ export function parseBookmarksSnapshotPayload(payload: unknown): BookmarkSnapsho
 
 export function parseHistorySnapshotsPayload(payload: unknown): HistorySnapshot[] | null {
   const parsedPayload = HistorySnapshotsPayloadSchema.safeParse(payload);
+  return parsedPayload.success ? parsedPayload.data : null;
+}
+
+export function parseDownloadSnapshotsPayload(payload: unknown): DownloadSnapshot[] | null {
+  const parsedPayload = DownloadSnapshotsPayloadSchema.safeParse(payload);
+  return parsedPayload.success ? parsedPayload.data : null;
+}
+
+export function parseDownloadIdPayload(payload: unknown): string | null {
+  const parsedPayload = DownloadIdPayloadSchema.safeParse(payload);
+  return parsedPayload.success ? parsedPayload.data : null;
+}
+
+export function parseDownloadDirectoryPayload(payload: unknown): string | null {
+  const parsedPayload = DownloadDirectoryPayloadSchema.safeParse(payload);
   return parsedPayload.success ? parsedPayload.data : null;
 }
 

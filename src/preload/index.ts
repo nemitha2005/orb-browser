@@ -5,6 +5,9 @@ import {
   parseBookmarksSnapshotPayload,
   parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
+  parseDownloadDirectoryPayload,
+  parseDownloadIdPayload,
+  parseDownloadSnapshotsPayload,
   parseFloatNavigatePayload,
   parseHistorySnapshotsPayload,
   parseMenuActionPayload,
@@ -18,6 +21,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
   MenuInitPayload,
@@ -180,6 +184,80 @@ contextBridge.exposeInMainWorld('orb', {
   getHistory: async (): Promise<HistorySnapshot[]> => {
     const payload = await ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET);
     return parseHistorySnapshotsPayload(payload) ?? [];
+  },
+
+  getDownloads: async (): Promise<DownloadSnapshot[]> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.DOWNLOADS_GET);
+    return parseDownloadSnapshotsPayload(payload) ?? [];
+  },
+
+  getDownloadDirectory: async (): Promise<string> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.DOWNLOADS_GET_DIRECTORY);
+    return parseDownloadDirectoryPayload(payload) ?? '';
+  },
+
+  selectDownloadDirectory: async (): Promise<string> => {
+    const payload = await ipcRenderer.invoke(IPC_CHANNELS.DOWNLOADS_SELECT_DIRECTORY);
+    return parseDownloadDirectoryPayload(payload) ?? '';
+  },
+
+  pauseDownload: (downloadId: string) => {
+    const safeDownloadId = parseDownloadIdPayload(downloadId);
+    if (!safeDownloadId) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer.invoke(IPC_CHANNELS.DOWNLOADS_PAUSE, safeDownloadId).then(() => undefined);
+  },
+
+  resumeDownload: (downloadId: string) => {
+    const safeDownloadId = parseDownloadIdPayload(downloadId);
+    if (!safeDownloadId) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_RESUME, safeDownloadId)
+      .then(() => undefined);
+  },
+
+  cancelDownload: (downloadId: string) => {
+    const safeDownloadId = parseDownloadIdPayload(downloadId);
+    if (!safeDownloadId) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_CANCEL, safeDownloadId)
+      .then(() => undefined);
+  },
+
+  removeDownload: (downloadId: string) => {
+    const safeDownloadId = parseDownloadIdPayload(downloadId);
+    if (!safeDownloadId) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_REMOVE, safeDownloadId)
+      .then(() => undefined);
+  },
+
+  onDownloadsChanged: (callback: (downloads: DownloadSnapshot[]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+      const parsedDownloads = parseDownloadSnapshotsPayload(payload);
+      if (!parsedDownloads) {
+        return;
+      }
+
+      callback(parsedDownloads);
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.DOWNLOADS_CHANGED, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.DOWNLOADS_CHANGED, handler);
+    };
   },
 
   clearHistory: async (): Promise<HistorySnapshot[]> => {

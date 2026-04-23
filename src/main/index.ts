@@ -1,11 +1,13 @@
-import { app, BrowserView, BrowserWindow, ipcMain, screen, session } from 'electron';
+import { app, BrowserView, BrowserWindow, dialog, ipcMain, screen, session } from 'electron';
 import Store from 'electron-store';
+import { existsSync, statSync } from 'node:fs';
 import path from 'path';
 
 import {
   parseBookmarkIdPayload,
   parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
+  parseDownloadIdPayload,
   parseFloatNavigatePayload,
   parseMenuActionPayload,
   parseMenuShowPayload,
@@ -18,6 +20,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   TabSnapshot,
   TabsStateSnapshot,
@@ -29,8 +32,10 @@ import type { StorageLayer } from './storage';
 const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
 const RENDERER_DIST = path.join(__dirname, '../renderer');
 const TABS_SESSION_KEY = 'tabsSession';
+const DOWNLOADS_DIRECTORY_KEY = 'downloadsDirectory';
 const MAX_RESTORED_TABS = 20;
 const HISTORY_LIST_LIMIT = 200;
+const DOWNLOADS_LIST_LIMIT = 200;
 
 interface ManagedTab {
   id: number;
@@ -47,6 +52,31 @@ interface PersistedTabSession {
 
 interface PersistedStateSchema {
   tabsSession: PersistedTabSession;
+  downloadsDirectory: string;
+}
+
+type ManagedDownloadState =
+  | 'progressing'
+  | 'paused'
+  | 'completed'
+  | 'cancelled'
+  | 'interrupted';
+
+interface ManagedDownload {
+  id: string;
+  url: string;
+  fileName: string;
+  savePath: string;
+  totalBytes: number;
+  receivedBytes: number;
+  state: ManagedDownloadState;
+  startedAt: string;
+  updatedAt: string;
+  speedBytesPerSecond: number;
+  canResume: boolean;
+  item: Electron.DownloadItem | null;
+  lastBytesSample: number;
+  lastSampleAtMs: number;
 }
 
 const MENU_WIDTH = 220;
@@ -62,6 +92,7 @@ let activeTabId: number | null = null;
 let tabs: ManagedTab[] = [];
 let storageLayer: StorageLayer | null = null;
 let persistedStateStore: Store<PersistedStateSchema> | null = null;
+let managedDownloads: ManagedDownload[] = [];
 let browserBounds: BrowserBounds = {
   x: 0,
   y: 120,
@@ -78,11 +109,130 @@ function getPersistedStateStore(): Store<PersistedStateSchema> {
           tabs: [],
           activeTabIndex: 0,
         },
+        downloadsDirectory: app.getPath('downloads'),
       },
     });
   }
 
   return persistedStateStore;
+}
+
+function isExistingDirectory(value: string): boolean {
+  try {
+    if (!value || !existsSync(value)) {
+      return false;
+    }
+
+    return statSync(value).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function getDefaultDownloadsDirectory(): string {
+  try {
+    return app.getPath('downloads');
+  } catch {
+    return app.getPath('userData');
+  }
+}
+
+function getConfiguredDownloadsDirectory(): string {
+  const configured = getPersistedStateStore().get(DOWNLOADS_DIRECTORY_KEY);
+  if (typeof configured === 'string' && isExistingDirectory(configured)) {
+    return configured;
+  }
+
+  const fallback = getDefaultDownloadsDirectory();
+  getPersistedStateStore().set(DOWNLOADS_DIRECTORY_KEY, fallback);
+  return fallback;
+}
+
+function setConfiguredDownloadsDirectory(directoryPath: string): string {
+  if (!isExistingDirectory(directoryPath)) {
+    return getConfiguredDownloadsDirectory();
+  }
+
+  getPersistedStateStore().set(DOWNLOADS_DIRECTORY_KEY, directoryPath);
+  return directoryPath;
+}
+
+function buildUniqueDownloadPath(directoryPath: string, fileName: string): string {
+  const parsedName = path.parse(fileName);
+  const baseName = parsedName.name || 'download';
+  const extension = parsedName.ext;
+  const normalizedFileName = fileName || `${baseName}${extension}`;
+  const initialPath = path.join(directoryPath, normalizedFileName);
+
+  if (!existsSync(initialPath)) {
+    return initialPath;
+  }
+
+  let index = 1;
+  while (index < 10000) {
+    const candidatePath = path.join(directoryPath, `${baseName} (${index})${extension}`);
+    if (!existsSync(candidatePath)) {
+      return candidatePath;
+    }
+
+    index += 1;
+  }
+
+  return path.join(directoryPath, `${baseName}-${Date.now()}${extension}`);
+}
+
+function toDownloadSnapshot(download: ManagedDownload): DownloadSnapshot {
+  const safeTotalBytes = Math.max(0, download.totalBytes);
+  const safeReceivedBytes = Math.max(
+    0,
+    Math.min(download.receivedBytes, safeTotalBytes || download.receivedBytes),
+  );
+  const percent =
+    safeTotalBytes > 0
+      ? Math.min(100, Math.round((safeReceivedBytes / safeTotalBytes) * 100))
+      : 0;
+
+  return {
+    id: download.id,
+    url: download.url,
+    fileName: download.fileName,
+    savePath: download.savePath,
+    totalBytes: safeTotalBytes,
+    receivedBytes: safeReceivedBytes,
+    percent,
+    state: download.state,
+    startedAt: download.startedAt,
+    updatedAt: download.updatedAt,
+    speedBytesPerSecond: download.speedBytesPerSecond,
+    canResume: download.canResume,
+  };
+}
+
+function trimManagedDownloads(): void {
+  if (managedDownloads.length <= DOWNLOADS_LIST_LIMIT) {
+    return;
+  }
+
+  const activeDownloads = managedDownloads.filter(download => {
+    return download.state === 'progressing' || download.state === 'paused';
+  });
+  const inactiveDownloads = managedDownloads
+    .filter(download => download.state !== 'progressing' && download.state !== 'paused')
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+
+  const availableInactiveSlots = Math.max(0, DOWNLOADS_LIST_LIMIT - activeDownloads.length);
+  managedDownloads = [...activeDownloads, ...inactiveDownloads.slice(0, availableInactiveSlots)];
+}
+
+function getDownloadsSnapshot(): DownloadSnapshot[] {
+  return managedDownloads
+    .slice()
+    .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))
+    .map(toDownloadSnapshot);
+}
+
+function findManagedDownload(downloadId: string): ManagedDownload | undefined {
+  return managedDownloads.find(download => download.id === downloadId);
 }
 
 // Renderer pages should only navigate to local files (or devtools in development).
@@ -200,6 +350,104 @@ function emitHistoryChanged(): void {
   }
 
   mainWindow.webContents.send(IPC_CHANNELS.HISTORY_CHANGED, getHistorySnapshot());
+}
+
+function emitDownloadsChanged(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(IPC_CHANNELS.DOWNLOADS_CHANGED, getDownloadsSnapshot());
+}
+
+function registerDownloadSessionHandlers(): void {
+  const defaultSession = session.defaultSession;
+
+  defaultSession.on('will-download', (_event, item) => {
+    const timestampMs = Date.now();
+    const startedAt = new Date(timestampMs).toISOString();
+    const sourceUrl = item.getURLChain().at(-1) ?? item.getURL() ?? '';
+    const fileName = item.getFilename() || 'download';
+    const savePath = buildUniqueDownloadPath(getConfiguredDownloadsDirectory(), fileName);
+    const downloadId = `${timestampMs}-${Math.random().toString(36).slice(2, 10)}`;
+
+    item.setSavePath(savePath);
+
+    const managedDownload: ManagedDownload = {
+      id: downloadId,
+      url: sourceUrl,
+      fileName,
+      savePath,
+      totalBytes: Math.max(0, item.getTotalBytes()),
+      receivedBytes: Math.max(0, item.getReceivedBytes()),
+      state: item.isPaused() ? 'paused' : 'progressing',
+      startedAt,
+      updatedAt: startedAt,
+      speedBytesPerSecond: 0,
+      canResume: item.canResume(),
+      item,
+      lastBytesSample: Math.max(0, item.getReceivedBytes()),
+      lastSampleAtMs: timestampMs,
+    };
+
+    managedDownloads.unshift(managedDownload);
+    trimManagedDownloads();
+    emitDownloadsChanged();
+
+    item.on('updated', (_updatedEvent, updateState) => {
+      const download = findManagedDownload(downloadId);
+      if (!download) {
+        return;
+      }
+
+      const nowMs = Date.now();
+      const receivedBytes = Math.max(0, item.getReceivedBytes());
+      const totalBytes = Math.max(0, item.getTotalBytes());
+      const deltaBytes = Math.max(0, receivedBytes - download.lastBytesSample);
+      const deltaMs = Math.max(1, nowMs - download.lastSampleAtMs);
+
+      download.receivedBytes = receivedBytes;
+      download.totalBytes = totalBytes;
+      download.speedBytesPerSecond = Math.round((deltaBytes * 1000) / deltaMs);
+      download.lastBytesSample = receivedBytes;
+      download.lastSampleAtMs = nowMs;
+      download.updatedAt = new Date(nowMs).toISOString();
+      download.canResume = item.canResume();
+
+      if (updateState === 'interrupted') {
+        download.state = 'interrupted';
+      } else {
+        download.state = item.isPaused() ? 'paused' : 'progressing';
+      }
+
+      emitDownloadsChanged();
+    });
+
+    item.once('done', (_doneEvent, doneState) => {
+      const download = findManagedDownload(downloadId);
+      if (!download) {
+        return;
+      }
+
+      download.receivedBytes = Math.max(0, item.getReceivedBytes());
+      download.totalBytes = Math.max(0, item.getTotalBytes());
+      download.updatedAt = new Date().toISOString();
+      download.canResume = item.canResume();
+      download.speedBytesPerSecond = 0;
+      download.item = null;
+
+      if (doneState === 'completed') {
+        download.state = 'completed';
+      } else if (doneState === 'cancelled') {
+        download.state = 'cancelled';
+      } else {
+        download.state = 'interrupted';
+      }
+
+      trimManagedDownloads();
+      emitDownloadsChanged();
+    });
+  });
 }
 
 function toggleActiveBookmark(): BookmarkSnapshot[] {
@@ -689,6 +937,7 @@ function createMainWindow(): void {
     emitTabsState();
     emitBookmarksChanged();
     emitHistoryChanged();
+    emitDownloadsChanged();
   });
 
   mainWindow.on('resize', () => {
@@ -998,6 +1247,89 @@ ipcMain.handle(IPC_CHANNELS.HISTORY_CLEAR, () => {
   return clearHistory();
 });
 
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_GET, () => {
+  return getDownloadsSnapshot();
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_GET_DIRECTORY, () => {
+  return getConfiguredDownloadsDirectory();
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_SELECT_DIRECTORY, async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return getConfiguredDownloadsDirectory();
+  }
+
+  const currentDirectory = getConfiguredDownloadsDirectory();
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select download folder',
+    defaultPath: currentDirectory,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  const selectedDirectory = result.filePaths[0];
+  if (result.canceled || !selectedDirectory) {
+    return currentDirectory;
+  }
+
+  return setConfiguredDownloadsDirectory(selectedDirectory);
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_PAUSE, (_event, payload: unknown) => {
+  const downloadId = parseDownloadIdPayload(payload);
+  if (!downloadId) {
+    return;
+  }
+
+  const download = findManagedDownload(downloadId);
+  if (!download?.item || download.item.isPaused()) {
+    return;
+  }
+
+  download.item.pause();
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_RESUME, (_event, payload: unknown) => {
+  const downloadId = parseDownloadIdPayload(payload);
+  if (!downloadId) {
+    return;
+  }
+
+  const download = findManagedDownload(downloadId);
+  if (!download?.item || !download.item.canResume()) {
+    return;
+  }
+
+  download.item.resume();
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_CANCEL, (_event, payload: unknown) => {
+  const downloadId = parseDownloadIdPayload(payload);
+  if (!downloadId) {
+    return;
+  }
+
+  const download = findManagedDownload(downloadId);
+  if (!download?.item) {
+    return;
+  }
+
+  download.item.cancel();
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_REMOVE, (_event, payload: unknown) => {
+  const downloadId = parseDownloadIdPayload(payload);
+  if (!downloadId) {
+    return;
+  }
+
+  managedDownloads = managedDownloads.filter(download => {
+    return !(download.id === downloadId && !download.item);
+  });
+
+  emitDownloadsChanged();
+});
+
 process.on('uncaughtException', (error) => {
   console.error('[main] uncaughtException', error);
 });
@@ -1009,6 +1341,7 @@ process.on('unhandledRejection', (reason) => {
 app.whenReady().then(() => {
   configureSessionSecurity();
   configureWebContentsSecurity();
+  registerDownloadSessionHandlers();
 
   try {
     storageLayer = initializeStorageLayer({

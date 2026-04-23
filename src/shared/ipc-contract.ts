@@ -40,10 +40,26 @@ export interface HistorySnapshot {
   lastVisitedAt: string;
 }
 
+export interface DownloadSnapshot {
+  id: string;
+  url: string;
+  fileName: string;
+  savePath: string;
+  totalBytes: number;
+  receivedBytes: number;
+  percent: number;
+  state: 'progressing' | 'paused' | 'completed' | 'cancelled' | 'interrupted';
+  startedAt: string;
+  updatedAt: string;
+  speedBytesPerSecond: number;
+  canResume: boolean;
+}
+
 export const MENU_ACTIONS = {
   NEW_TAB: 'new-tab',
   TOGGLE_BOOKMARKS: 'toggle-bookmarks',
   TOGGLE_HISTORY: 'toggle-history',
+  OPEN_DOWNLOADS: 'open-downloads',
   TOGGLE_BOOKMARK_BAR: 'toggle-bookmark-bar',
   TOGGLE_THEME: 'toggle-theme',
   OPEN_FLOAT_SEARCH: 'open-float-search',
@@ -86,6 +102,14 @@ export const IPC_CHANNELS = {
   HISTORY_GET: 'history-get',
   HISTORY_CLEAR: 'history-clear',
   HISTORY_CHANGED: 'history-changed',
+  DOWNLOADS_GET: 'downloads-get',
+  DOWNLOADS_CHANGED: 'downloads-changed',
+  DOWNLOADS_GET_DIRECTORY: 'downloads-get-directory',
+  DOWNLOADS_SELECT_DIRECTORY: 'downloads-select-directory',
+  DOWNLOADS_PAUSE: 'downloads-pause',
+  DOWNLOADS_RESUME: 'downloads-resume',
+  DOWNLOADS_CANCEL: 'downloads-cancel',
+  DOWNLOADS_REMOVE: 'downloads-remove',
   MENU_SHOW: 'menu-show',
   MENU_INIT: 'menu-init',
   MENU_ACTION: 'menu-action',
