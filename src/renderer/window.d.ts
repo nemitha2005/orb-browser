@@ -42,6 +42,8 @@ declare global {
       resumeDownload: (downloadId: string) => Promise<void>;
       cancelDownload: (downloadId: string) => Promise<void>;
       removeDownload: (downloadId: string) => Promise<void>;
+      openDownloadFile: (downloadId: string) => Promise<void>;
+      showDownloadInFolder: (downloadId: string) => Promise<void>;
       onDownloadsChanged: (callback: (downloads: DownloadSnapshot[]) => void) => () => void;
       clearHistory: () => Promise<HistorySnapshot[]>;
       onHistoryChanged: (callback: (history: HistorySnapshot[]) => void) => () => void;

@@ -243,6 +243,28 @@ contextBridge.exposeInMainWorld('orb', {
       .then(() => undefined);
   },
 
+  openDownloadFile: (downloadId: string) => {
+    const safeDownloadId = parseDownloadIdPayload(downloadId);
+    if (!safeDownloadId) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_OPEN_FILE, safeDownloadId)
+      .then(() => undefined);
+  },
+
+  showDownloadInFolder: (downloadId: string) => {
+    const safeDownloadId = parseDownloadIdPayload(downloadId);
+    if (!safeDownloadId) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_SHOW_IN_FOLDER, safeDownloadId)
+      .then(() => undefined);
+  },
+
   onDownloadsChanged: (callback: (downloads: DownloadSnapshot[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
       const parsedDownloads = parseDownloadSnapshotsPayload(payload);

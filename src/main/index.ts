@@ -1,4 +1,4 @@
-import { app, BrowserView, BrowserWindow, dialog, ipcMain, screen, session } from 'electron';
+import { app, BrowserView, BrowserWindow, dialog, ipcMain, screen, session, shell } from 'electron';
 import Store from 'electron-store';
 import { existsSync, statSync } from 'node:fs';
 import path from 'path';
@@ -1328,6 +1328,34 @@ ipcMain.handle(IPC_CHANNELS.DOWNLOADS_REMOVE, (_event, payload: unknown) => {
   });
 
   emitDownloadsChanged();
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_OPEN_FILE, (_event, payload: unknown) => {
+  const downloadId = parseDownloadIdPayload(payload);
+  if (!downloadId) {
+    return;
+  }
+
+  const download = findManagedDownload(downloadId);
+  if (!download || download.state !== 'completed') {
+    return;
+  }
+
+  void shell.openPath(download.savePath);
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_SHOW_IN_FOLDER, (_event, payload: unknown) => {
+  const downloadId = parseDownloadIdPayload(payload);
+  if (!downloadId) {
+    return;
+  }
+
+  const download = findManagedDownload(downloadId);
+  if (!download) {
+    return;
+  }
+
+  shell.showItemInFolder(download.savePath);
 });
 
 process.on('uncaughtException', (error) => {

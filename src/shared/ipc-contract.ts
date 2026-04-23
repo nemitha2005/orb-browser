@@ -110,6 +110,8 @@ export const IPC_CHANNELS = {
   DOWNLOADS_RESUME: 'downloads-resume',
   DOWNLOADS_CANCEL: 'downloads-cancel',
   DOWNLOADS_REMOVE: 'downloads-remove',
+  DOWNLOADS_OPEN_FILE: 'downloads-open-file',
+  DOWNLOADS_SHOW_IN_FOLDER: 'downloads-show-in-folder',
   MENU_SHOW: 'menu-show',
   MENU_INIT: 'menu-init',
   MENU_ACTION: 'menu-action',

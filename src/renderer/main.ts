@@ -96,6 +96,12 @@ const btnBack = document.getElementById('btn-back') as HTMLButtonElement;
 const btnForward = document.getElementById('btn-forward') as HTMLButtonElement;
 const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
 const btnBookmark = document.getElementById('btn-bookmark') as HTMLButtonElement;
+const btnDownloadsIndicator = document.getElementById('btn-downloads-indicator') as HTMLButtonElement;
+const downloadsIndicatorCount = document.getElementById('downloads-indicator-count') as HTMLSpanElement;
+const downloadsPopover = document.getElementById('downloads-popover') as HTMLDivElement;
+const downloadsPopoverList = document.getElementById('downloads-popover-list') as HTMLDivElement;
+const downloadsPopoverEmpty = document.getElementById('downloads-popover-empty') as HTMLDivElement;
+const btnDownloadsPopoverOpen = document.getElementById('btn-downloads-popover-open') as HTMLButtonElement;
 const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnMenu = document.getElementById('btn-menu') as HTMLButtonElement;
@@ -107,8 +113,11 @@ const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 btnBack.innerHTML = ICONS.back;
 btnForward.innerHTML = ICONS.forward;
 btnReload.innerHTML = ICONS.reload;
+btnDownloadsIndicator.insertAdjacentHTML('afterbegin', ICONS.downloads);
 btnFloat.innerHTML = ICONS.float;
 btnMenu.innerHTML = ICONS.menu;
+
+let isDownloadsPopoverOpen = false;
 
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
@@ -314,6 +323,55 @@ function getDownloadStateLabel(stateValue: DownloadSnapshot['state']): string {
     default:
       return 'Unknown';
   }
+}
+
+function getActiveDownloads(): DownloadSnapshot[] {
+  return state.downloads.filter(download => {
+    return download.state === 'progressing' || download.state === 'paused';
+  });
+}
+
+function setDownloadsPopoverOpen(isOpen: boolean): void {
+  if (isDownloadsPopoverOpen === isOpen) {
+    return;
+  }
+
+  isDownloadsPopoverOpen = isOpen;
+  render();
+}
+
+function renderDownloadsIndicator(): void {
+  const activeDownloads = getActiveDownloads();
+  const activeCount = activeDownloads.length;
+
+  downloadsIndicatorCount.textContent = String(activeCount);
+  downloadsIndicatorCount.classList.toggle('hidden', activeCount === 0);
+  btnDownloadsIndicator.classList.toggle('text-orb-accent', activeCount > 0);
+  btnDownloadsIndicator.classList.toggle('text-orb-text-dim', activeCount === 0);
+
+  downloadsPopover.classList.toggle('hidden', !isDownloadsPopoverOpen);
+  downloadsPopoverList.innerHTML = '';
+
+  const hasActiveDownloads = activeDownloads.length > 0;
+  downloadsPopoverEmpty.classList.toggle('hidden', hasActiveDownloads);
+
+  activeDownloads.slice(0, 6).forEach(download => {
+    const row = document.createElement('button');
+    row.className =
+      'mb-1 w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-left transition hover:bg-orb-surface-2 last:mb-0';
+    row.setAttribute('data-popover-download-id', download.id);
+    row.innerHTML = `
+      <div class="flex items-center justify-between gap-2">
+        <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">${escapeHtml(download.fileName)}</span>
+        <span class="shrink-0 text-[10px] text-orb-text-dim">${download.percent}%</span>
+      </div>
+      <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-orb-surface">
+        <div class="h-full bg-orb-accent" style="width:${Math.max(0, Math.min(100, download.percent))}%"></div>
+      </div>
+    `;
+
+    downloadsPopoverList.appendChild(row);
+  });
 }
 
 function syncBrowserBounds(): void {
@@ -569,7 +627,11 @@ function renderFullPageView(): void {
       const canResume = download.state === 'paused' && download.canResume;
       const canCancel = isActive;
       const canRemove = !isActive;
+      const isCompleted = download.state === 'completed';
       const totalBytesText = download.totalBytes > 0 ? formatBytes(download.totalBytes) : 'Unknown size';
+      const progressMarkup = isActive
+        ? `<div class="mb-2 h-2 overflow-hidden rounded-full bg-orb-bg"><div class="h-full bg-orb-accent transition-[width] duration-200" style="width: ${progressWidth}%"></div></div>`
+        : '';
 
       card.innerHTML = `
         <div class="mb-2 flex items-start justify-between gap-3">
@@ -579,9 +641,7 @@ function renderFullPageView(): void {
           </div>
           <span class="shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2 py-[2px] text-[10px] uppercase tracking-[0.7px] text-orb-text-dim">${escapeHtml(getDownloadStateLabel(download.state))}</span>
         </div>
-        <div class="mb-2 h-2 overflow-hidden rounded-full bg-orb-bg">
-          <div class="h-full bg-orb-accent transition-[width] duration-200" style="width: ${progressWidth}%"></div>
-        </div>
+        ${progressMarkup}
         <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-orb-text-dim">
           <span>${download.percent}%</span>
           <span>${escapeHtml(formatBytes(download.receivedBytes))} / ${escapeHtml(totalBytesText)}</span>
@@ -591,6 +651,8 @@ function renderFullPageView(): void {
           <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-pause-id="${escapeHtml(download.id)}" ${canPause ? '' : 'disabled'}>Pause</button>
           <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-resume-id="${escapeHtml(download.id)}" ${canResume ? '' : 'disabled'}>Resume</button>
           <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-cancel-id="${escapeHtml(download.id)}" ${canCancel ? '' : 'disabled'}>Cancel</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-open-id="${escapeHtml(download.id)}" ${isCompleted ? '' : 'disabled'}>Open</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-show-id="${escapeHtml(download.id)}" ${isCompleted ? '' : 'disabled'}>Show in Explorer</button>
           <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-remove-id="${escapeHtml(download.id)}" ${canRemove ? '' : 'disabled'}>Remove</button>
         </div>
       `;
@@ -626,6 +688,7 @@ function render(): void {
   renderTabs();
   renderNavigation();
   renderBookmarkControls();
+  renderDownloadsIndicator();
   renderBookmarkBar();
   renderBookmarkEditor();
   renderBookmarksSidebar();
@@ -717,6 +780,10 @@ function toggleBookmarkBar(): void {
 function setFullPageView(view: 'history' | 'bookmarks' | 'downloads' | null): void {
   if (state.fullPageView === view) {
     return;
+  }
+
+  if (isDownloadsPopoverOpen) {
+    isDownloadsPopoverOpen = false;
   }
 
   state.fullPageView = view;
@@ -857,6 +924,31 @@ btnDownloadDirectorySelect.addEventListener('click', () => {
     state.downloadDirectory = directory;
     render();
   });
+});
+
+btnDownloadsIndicator.addEventListener('click', event => {
+  event.stopPropagation();
+  setDownloadsPopoverOpen(!isDownloadsPopoverOpen);
+});
+
+btnDownloadsPopoverOpen.addEventListener('click', () => {
+  setDownloadsPopoverOpen(false);
+  setFullPageView('downloads');
+});
+
+downloadsPopoverList.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const row = target.closest<HTMLElement>('[data-popover-download-id]');
+  if (!row) {
+    return;
+  }
+
+  setDownloadsPopoverOpen(false);
+  setFullPageView('downloads');
 });
 
 btnFloat.addEventListener('click', () => {
@@ -1125,7 +1217,42 @@ fullPageDownloadsList.addEventListener('click', event => {
     if (downloadId) {
       void window.orb.removeDownload(downloadId);
     }
+    return;
   }
+
+  const openTarget = target.closest<HTMLElement>('[data-download-open-id]');
+  if (openTarget) {
+    const downloadId = openTarget.getAttribute('data-download-open-id');
+    if (downloadId) {
+      void window.orb.openDownloadFile(downloadId);
+    }
+    return;
+  }
+
+  const showTarget = target.closest<HTMLElement>('[data-download-show-id]');
+  if (showTarget) {
+    const downloadId = showTarget.getAttribute('data-download-show-id');
+    if (downloadId) {
+      void window.orb.showDownloadInFolder(downloadId);
+    }
+  }
+});
+
+document.addEventListener('click', event => {
+  if (!isDownloadsPopoverOpen) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  if (target.closest('#downloads-popover') || target.closest('#btn-downloads-indicator')) {
+    return;
+  }
+
+  setDownloadsPopoverOpen(false);
 });
 
 unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
@@ -1154,6 +1281,12 @@ unsubscribeMenuAction = window.orb.onMenuAction(action => {
 });
 
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && isDownloadsPopoverOpen) {
+    event.preventDefault();
+    setDownloadsPopoverOpen(false);
+    return;
+  }
+
   if (event.key === 'Escape' && state.isBookmarkEditorOpen) {
     event.preventDefault();
     closeBookmarkEditor();
