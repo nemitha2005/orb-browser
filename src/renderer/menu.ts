@@ -73,6 +73,13 @@ function buildMenuEntries(): MenuEntry[] {
       label: 'History',
       shortcut: 'Ctrl+H',
     },
+    {
+      type: 'action',
+      action: MENU_ACTIONS.OPEN_DOWNLOADS,
+      icon: ICONS.downloads,
+      label: 'Downloads',
+      shortcut: 'Ctrl+J',
+    },
     { type: 'separator' },
     {
       type: 'action',

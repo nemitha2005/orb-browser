@@ -3,6 +3,7 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
   MenuInitPayload,
@@ -205,6 +206,60 @@ export function parseHistorySnapshotsPayload(payload: unknown): HistorySnapshot[
   }
 
   return payload;
+}
+
+function isDownloadSnapshot(payload: unknown): payload is DownloadSnapshot {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const download = payload as Record<string, unknown>;
+  return (
+    typeof download.id === 'string' &&
+    download.id.length > 0 &&
+    typeof download.url === 'string' &&
+    download.url.length > 0 &&
+    typeof download.fileName === 'string' &&
+    typeof download.savePath === 'string' &&
+    download.savePath.length > 0 &&
+    typeof download.totalBytes === 'number' &&
+    Number.isInteger(download.totalBytes) &&
+    download.totalBytes >= 0 &&
+    typeof download.receivedBytes === 'number' &&
+    Number.isInteger(download.receivedBytes) &&
+    download.receivedBytes >= 0 &&
+    typeof download.percent === 'number' &&
+    download.percent >= 0 &&
+    download.percent <= 100 &&
+    typeof download.state === 'string' &&
+    ['progressing', 'paused', 'completed', 'cancelled', 'interrupted'].includes(download.state) &&
+    typeof download.startedAt === 'string' &&
+    typeof download.updatedAt === 'string' &&
+    typeof download.speedBytesPerSecond === 'number' &&
+    Number.isInteger(download.speedBytesPerSecond) &&
+    download.speedBytesPerSecond >= 0 &&
+    typeof download.canResume === 'boolean'
+  );
+}
+
+export function parseDownloadSnapshotsPayload(payload: unknown): DownloadSnapshot[] | null {
+  if (!Array.isArray(payload)) {
+    return null;
+  }
+
+  if (!payload.every(isDownloadSnapshot)) {
+    return null;
+  }
+
+  return payload;
+}
+
+export function parseDownloadIdPayload(payload: unknown): string | null {
+  return parseStringPayload(payload, 120);
+}
+
+export function parseDownloadDirectoryPayload(payload: unknown): string | null {
+  return parseStringPayload(payload, 4096);
 }
 
 const validMenuActions: ReadonlySet<string> = new Set(Object.values(MENU_ACTIONS));

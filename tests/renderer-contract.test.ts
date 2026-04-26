@@ -21,6 +21,12 @@ describe('renderer contract smoke', () => {
       'btn-forward',
       'btn-reload',
       'btn-bookmark',
+      'btn-downloads-indicator',
+      'downloads-indicator-count',
+      'downloads-popover',
+      'downloads-popover-list',
+      'downloads-popover-empty',
+      'btn-downloads-popover-open',
       'btn-float',
       'btn-menu',
       'bookmark-bar',
@@ -55,6 +61,11 @@ describe('renderer contract smoke', () => {
       'btn-full-page-history-clear',
       'full-page-history-list',
       'full-page-history-empty',
+      'full-page-downloads',
+      'download-directory-value',
+      'btn-download-directory-select',
+      'full-page-downloads-list',
+      'full-page-downloads-empty',
     ];
 
     requiredIds.forEach(id => {

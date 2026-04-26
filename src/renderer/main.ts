@@ -2,6 +2,7 @@ import './styles/tailwind.css';
 import type {
   BookmarkSnapshot,
   BrowserBounds,
+  DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
   TabSnapshot,
@@ -28,11 +29,13 @@ interface RendererState {
   activeTabId: number | null;
   bookmarks: BookmarkSnapshot[];
   history: HistorySnapshot[];
+  downloads: DownloadSnapshot[];
+  downloadDirectory: string;
   isBookmarkBarVisible: boolean;
   isBookmarkEditorOpen: boolean;
   isBookmarksSidebarOpen: boolean;
   isHistorySidebarOpen: boolean;
-  fullPageView: 'history' | 'bookmarks' | null;
+  fullPageView: 'history' | 'bookmarks' | 'downloads' | null;
 }
 
 const ORB_BOOKMARK_BAR_VISIBLE_KEY = 'orb-bookmark-bar-visible';
@@ -42,6 +45,8 @@ const state: RendererState = {
   activeTabId: null,
   bookmarks: [],
   history: [],
+  downloads: [],
+  downloadDirectory: '',
   isBookmarkBarVisible: true,
   isBookmarkEditorOpen: false,
   isBookmarksSidebarOpen: false,
@@ -79,6 +84,11 @@ const fullPageHistory = document.getElementById('full-page-history') as HTMLDivE
 const fullPageHistoryList = document.getElementById('full-page-history-list') as HTMLUListElement;
 const fullPageHistoryEmpty = document.getElementById('full-page-history-empty') as HTMLParagraphElement;
 const btnFullPageHistoryClear = document.getElementById('btn-full-page-history-clear') as HTMLButtonElement;
+const fullPageDownloads = document.getElementById('full-page-downloads') as HTMLDivElement;
+const fullPageDownloadsList = document.getElementById('full-page-downloads-list') as HTMLDivElement;
+const fullPageDownloadsEmpty = document.getElementById('full-page-downloads-empty') as HTMLParagraphElement;
+const downloadDirectoryValue = document.getElementById('download-directory-value') as HTMLSpanElement;
+const btnDownloadDirectorySelect = document.getElementById('btn-download-directory-select') as HTMLButtonElement;
 const newTabPage = document.getElementById('new-tab-page') as HTMLDivElement;
 const addressBar = document.getElementById('address-bar') as HTMLInputElement;
 const newTabSearch = document.getElementById('new-tab-search') as HTMLInputElement;
@@ -86,6 +96,12 @@ const btnBack = document.getElementById('btn-back') as HTMLButtonElement;
 const btnForward = document.getElementById('btn-forward') as HTMLButtonElement;
 const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
 const btnBookmark = document.getElementById('btn-bookmark') as HTMLButtonElement;
+const btnDownloadsIndicator = document.getElementById('btn-downloads-indicator') as HTMLButtonElement;
+const downloadsIndicatorCount = document.getElementById('downloads-indicator-count') as HTMLSpanElement;
+const downloadsPopover = document.getElementById('downloads-popover') as HTMLDivElement;
+const downloadsPopoverList = document.getElementById('downloads-popover-list') as HTMLDivElement;
+const downloadsPopoverEmpty = document.getElementById('downloads-popover-empty') as HTMLDivElement;
+const btnDownloadsPopoverOpen = document.getElementById('btn-downloads-popover-open') as HTMLButtonElement;
 const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnMenu = document.getElementById('btn-menu') as HTMLButtonElement;
@@ -97,13 +113,17 @@ const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 btnBack.innerHTML = ICONS.back;
 btnForward.innerHTML = ICONS.forward;
 btnReload.innerHTML = ICONS.reload;
+btnDownloadsIndicator.insertAdjacentHTML('afterbegin', ICONS.downloads);
 btnFloat.innerHTML = ICONS.float;
 btnMenu.innerHTML = ICONS.menu;
+
+let isDownloadsPopoverOpen = false;
 
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
 let unsubscribeBookmarks: (() => void) | null = null;
 let unsubscribeHistory: (() => void) | null = null;
+let unsubscribeDownloads: (() => void) | null = null;
 let unsubscribeMenuAction: (() => void) | null = null;
 
 function getStoredBookmarkBarVisibility(): boolean {
@@ -270,6 +290,90 @@ function formatHistoryTimestamp(value: string): string {
   return parsedDate.toLocaleString();
 }
 
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const decimals = unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(decimals)} ${units[unitIndex]}`;
+}
+
+function getDownloadStateLabel(stateValue: DownloadSnapshot['state']): string {
+  switch (stateValue) {
+    case 'progressing':
+      return 'Downloading';
+    case 'paused':
+      return 'Paused';
+    case 'completed':
+      return 'Completed';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'interrupted':
+      return 'Interrupted';
+    default:
+      return 'Unknown';
+  }
+}
+
+function getActiveDownloads(): DownloadSnapshot[] {
+  return state.downloads.filter(download => {
+    return download.state === 'progressing' || download.state === 'paused';
+  });
+}
+
+function setDownloadsPopoverOpen(isOpen: boolean): void {
+  if (isDownloadsPopoverOpen === isOpen) {
+    return;
+  }
+
+  isDownloadsPopoverOpen = isOpen;
+  render();
+}
+
+function renderDownloadsIndicator(): void {
+  const activeDownloads = getActiveDownloads();
+  const activeCount = activeDownloads.length;
+
+  downloadsIndicatorCount.textContent = String(activeCount);
+  downloadsIndicatorCount.classList.toggle('hidden', activeCount === 0);
+  btnDownloadsIndicator.classList.toggle('text-orb-accent', activeCount > 0);
+  btnDownloadsIndicator.classList.toggle('text-orb-text-dim', activeCount === 0);
+
+  downloadsPopover.classList.toggle('hidden', !isDownloadsPopoverOpen);
+  downloadsPopoverList.innerHTML = '';
+
+  const hasActiveDownloads = activeDownloads.length > 0;
+  downloadsPopoverEmpty.classList.toggle('hidden', hasActiveDownloads);
+
+  activeDownloads.slice(0, 6).forEach(download => {
+    const row = document.createElement('button');
+    row.className =
+      'mb-1 w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-left transition hover:bg-orb-surface-2 last:mb-0';
+    row.setAttribute('data-popover-download-id', download.id);
+    row.innerHTML = `
+      <div class="flex items-center justify-between gap-2">
+        <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">${escapeHtml(download.fileName)}</span>
+        <span class="shrink-0 text-[10px] text-orb-text-dim">${download.percent}%</span>
+      </div>
+      <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-orb-surface">
+        <div class="h-full bg-orb-accent" style="width:${Math.max(0, Math.min(100, download.percent))}%"></div>
+      </div>
+    `;
+
+    downloadsPopoverList.appendChild(row);
+  });
+}
+
 function syncBrowserBounds(): void {
   // BrowserView is owned by main, so renderer sends browser area coordinates over IPC.
   const rect = browserArea.getBoundingClientRect();
@@ -289,7 +393,7 @@ function syncBrowserBounds(): void {
   void window.orb.setBrowserBounds(bounds);
 }
 
-function resolveInternalRoute(input: string): 'history' | 'bookmarks' | null {
+function resolveInternalRoute(input: string): 'history' | 'bookmarks' | 'downloads' | null {
   const normalized = input.trim().toLowerCase();
 
   if (normalized === 'orb/history' || normalized === 'orb://history') {
@@ -298,6 +402,10 @@ function resolveInternalRoute(input: string): 'history' | 'bookmarks' | null {
 
   if (normalized === 'orb/bookmarks' || normalized === 'orb://bookmarks') {
     return 'bookmarks';
+  }
+
+  if (normalized === 'orb/downloads' || normalized === 'orb://downloads') {
+    return 'downloads';
   }
 
   return null;
@@ -327,6 +435,8 @@ function renderNavigation(): void {
     addressBar.value = 'orb/history';
   } else if (state.fullPageView === 'bookmarks') {
     addressBar.value = 'orb/bookmarks';
+  } else if (state.fullPageView === 'downloads') {
+    addressBar.value = 'orb/downloads';
   } else {
     addressBar.value = activeTab?.url ?? '';
   }
@@ -469,6 +579,7 @@ function renderFullPageView(): void {
   fullPageView.classList.toggle('hidden', !isOpen);
   fullPageBookmarks.classList.toggle('hidden', activeView !== 'bookmarks');
   fullPageHistory.classList.toggle('hidden', activeView !== 'history');
+  fullPageDownloads.classList.toggle('hidden', activeView !== 'downloads');
 
   if (!isOpen) {
     return;
@@ -493,6 +604,60 @@ function renderFullPageView(): void {
       `;
 
       fullPageBookmarksList.appendChild(card);
+    });
+
+    return;
+  }
+
+  if (activeView === 'downloads') {
+    fullPageTitle.textContent = 'Downloads';
+    fullPageDownloadsList.innerHTML = '';
+    downloadDirectoryValue.textContent = state.downloadDirectory || 'Not set';
+
+    const hasDownloads = state.downloads.length > 0;
+    fullPageDownloadsEmpty.style.display = hasDownloads ? 'none' : 'block';
+
+    state.downloads.forEach(download => {
+      const card = document.createElement('article');
+      card.className = 'rounded-orb border border-orb-border bg-orb-surface p-3';
+
+      const progressWidth = Math.max(0, Math.min(100, download.percent));
+      const isActive = download.state === 'progressing' || download.state === 'paused';
+      const canPause = download.state === 'progressing';
+      const canResume = download.state === 'paused' && download.canResume;
+      const canCancel = isActive;
+      const canRemove = !isActive;
+      const isCompleted = download.state === 'completed';
+      const totalBytesText = download.totalBytes > 0 ? formatBytes(download.totalBytes) : 'Unknown size';
+      const progressMarkup = isActive
+        ? `<div class="mb-2 h-2 overflow-hidden rounded-full bg-orb-bg"><div class="h-full bg-orb-accent transition-[width] duration-200" style="width: ${progressWidth}%"></div></div>`
+        : '';
+
+      card.innerHTML = `
+        <div class="mb-2 flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <h3 class="truncate text-[13px] font-semibold text-orb-text" title="${escapeHtml(download.fileName)}">${escapeHtml(download.fileName)}</h3>
+            <p class="truncate text-[11px] text-orb-text-dim" title="${escapeHtml(download.savePath)}">${escapeHtml(download.savePath)}</p>
+          </div>
+          <span class="shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2 py-[2px] text-[10px] uppercase tracking-[0.7px] text-orb-text-dim">${escapeHtml(getDownloadStateLabel(download.state))}</span>
+        </div>
+        ${progressMarkup}
+        <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-orb-text-dim">
+          <span>${download.percent}%</span>
+          <span>${escapeHtml(formatBytes(download.receivedBytes))} / ${escapeHtml(totalBytesText)}</span>
+          <span>${escapeHtml(formatBytes(download.speedBytesPerSecond))}/s</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-pause-id="${escapeHtml(download.id)}" ${canPause ? '' : 'disabled'}>Pause</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-resume-id="${escapeHtml(download.id)}" ${canResume ? '' : 'disabled'}>Resume</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-cancel-id="${escapeHtml(download.id)}" ${canCancel ? '' : 'disabled'}>Cancel</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-open-id="${escapeHtml(download.id)}" ${isCompleted ? '' : 'disabled'}>Open</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-show-id="${escapeHtml(download.id)}" ${isCompleted ? '' : 'disabled'}>Show in Explorer</button>
+          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-remove-id="${escapeHtml(download.id)}" ${canRemove ? '' : 'disabled'}>Remove</button>
+        </div>
+      `;
+
+      fullPageDownloadsList.appendChild(card);
     });
 
     return;
@@ -523,6 +688,7 @@ function render(): void {
   renderTabs();
   renderNavigation();
   renderBookmarkControls();
+  renderDownloadsIndicator();
   renderBookmarkBar();
   renderBookmarkEditor();
   renderBookmarksSidebar();
@@ -544,6 +710,11 @@ function applyBookmarks(nextBookmarks: BookmarkSnapshot[]): void {
 
 function applyHistory(nextHistory: HistorySnapshot[]): void {
   state.history = nextHistory;
+  render();
+}
+
+function applyDownloads(nextDownloads: DownloadSnapshot[]): void {
+  state.downloads = nextDownloads;
   render();
 }
 
@@ -606,9 +777,13 @@ function toggleBookmarkBar(): void {
   setBookmarkBarVisible(!state.isBookmarkBarVisible);
 }
 
-function setFullPageView(view: 'history' | 'bookmarks' | null): void {
+function setFullPageView(view: 'history' | 'bookmarks' | 'downloads' | null): void {
   if (state.fullPageView === view) {
     return;
+  }
+
+  if (isDownloadsPopoverOpen) {
+    isDownloadsPopoverOpen = false;
   }
 
   state.fullPageView = view;
@@ -672,6 +847,9 @@ function handleMenuAction(action: MenuAction): void {
       break;
     case MENU_ACTIONS.TOGGLE_HISTORY:
       toggleHistorySidebar();
+      break;
+    case MENU_ACTIONS.OPEN_DOWNLOADS:
+      setFullPageView('downloads');
       break;
     case MENU_ACTIONS.TOGGLE_BOOKMARK_BAR:
       toggleBookmarkBar();
@@ -739,6 +917,38 @@ btnFullPageClose.addEventListener('click', () => {
 
 btnFullPageHistoryClear.addEventListener('click', () => {
   void window.orb.clearHistory().then(applyHistory);
+});
+
+btnDownloadDirectorySelect.addEventListener('click', () => {
+  void window.orb.selectDownloadDirectory().then(directory => {
+    state.downloadDirectory = directory;
+    render();
+  });
+});
+
+btnDownloadsIndicator.addEventListener('click', event => {
+  event.stopPropagation();
+  setDownloadsPopoverOpen(!isDownloadsPopoverOpen);
+});
+
+btnDownloadsPopoverOpen.addEventListener('click', () => {
+  setDownloadsPopoverOpen(false);
+  setFullPageView('downloads');
+});
+
+downloadsPopoverList.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const row = target.closest<HTMLElement>('[data-popover-download-id]');
+  if (!row) {
+    return;
+  }
+
+  setDownloadsPopoverOpen(false);
+  setFullPageView('downloads');
 });
 
 btnFloat.addEventListener('click', () => {
@@ -968,6 +1178,83 @@ fullPageHistoryList.addEventListener('click', event => {
   navigate(historyEntry.url);
 });
 
+fullPageDownloadsList.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const pauseTarget = target.closest<HTMLElement>('[data-download-pause-id]');
+  if (pauseTarget) {
+    const downloadId = pauseTarget.getAttribute('data-download-pause-id');
+    if (downloadId) {
+      void window.orb.pauseDownload(downloadId);
+    }
+    return;
+  }
+
+  const resumeTarget = target.closest<HTMLElement>('[data-download-resume-id]');
+  if (resumeTarget) {
+    const downloadId = resumeTarget.getAttribute('data-download-resume-id');
+    if (downloadId) {
+      void window.orb.resumeDownload(downloadId);
+    }
+    return;
+  }
+
+  const cancelTarget = target.closest<HTMLElement>('[data-download-cancel-id]');
+  if (cancelTarget) {
+    const downloadId = cancelTarget.getAttribute('data-download-cancel-id');
+    if (downloadId) {
+      void window.orb.cancelDownload(downloadId);
+    }
+    return;
+  }
+
+  const removeTarget = target.closest<HTMLElement>('[data-download-remove-id]');
+  if (removeTarget) {
+    const downloadId = removeTarget.getAttribute('data-download-remove-id');
+    if (downloadId) {
+      void window.orb.removeDownload(downloadId);
+    }
+    return;
+  }
+
+  const openTarget = target.closest<HTMLElement>('[data-download-open-id]');
+  if (openTarget) {
+    const downloadId = openTarget.getAttribute('data-download-open-id');
+    if (downloadId) {
+      void window.orb.openDownloadFile(downloadId);
+    }
+    return;
+  }
+
+  const showTarget = target.closest<HTMLElement>('[data-download-show-id]');
+  if (showTarget) {
+    const downloadId = showTarget.getAttribute('data-download-show-id');
+    if (downloadId) {
+      void window.orb.showDownloadInFolder(downloadId);
+    }
+  }
+});
+
+document.addEventListener('click', event => {
+  if (!isDownloadsPopoverOpen) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  if (target.closest('#downloads-popover') || target.closest('#btn-downloads-indicator')) {
+    return;
+  }
+
+  setDownloadsPopoverOpen(false);
+});
+
 unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
   // Float window already triggers main-process navigation; we mirror address text here.
   addressBar.value = url;
@@ -985,11 +1272,21 @@ unsubscribeHistory = window.orb.onHistoryChanged(nextHistory => {
   applyHistory(nextHistory);
 });
 
+unsubscribeDownloads = window.orb.onDownloadsChanged(nextDownloads => {
+  applyDownloads(nextDownloads);
+});
+
 unsubscribeMenuAction = window.orb.onMenuAction(action => {
   handleMenuAction(action);
 });
 
 document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && isDownloadsPopoverOpen) {
+    event.preventDefault();
+    setDownloadsPopoverOpen(false);
+    return;
+  }
+
   if (event.key === 'Escape' && state.isBookmarkEditorOpen) {
     event.preventDefault();
     closeBookmarkEditor();
@@ -1041,6 +1338,12 @@ document.addEventListener('keydown', event => {
     return;
   }
 
+  if (mod && event.key.toLowerCase() === 'j') {
+    event.preventDefault();
+    setFullPageView('downloads');
+    return;
+  }
+
   if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
     event.preventDefault();
     toggleBookmarkBar();
@@ -1071,6 +1374,9 @@ window.addEventListener('beforeunload', () => {
   unsubscribeHistory?.();
   unsubscribeHistory = null;
 
+  unsubscribeDownloads?.();
+  unsubscribeDownloads = null;
+
   unsubscribeMenuAction?.();
   unsubscribeMenuAction = null;
 });
@@ -1081,6 +1387,15 @@ window.orb.getBookmarks().then(initialBookmarks => {
 
 window.orb.getHistory().then(initialHistory => {
   applyHistory(initialHistory);
+});
+
+window.orb.getDownloads().then(initialDownloads => {
+  applyDownloads(initialDownloads);
+});
+
+window.orb.getDownloadDirectory().then(initialDirectory => {
+  state.downloadDirectory = initialDirectory;
+  render();
 });
 
 window.orb.getTabsState().then(initialState => {
