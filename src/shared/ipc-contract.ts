@@ -79,6 +79,17 @@ export interface MenuInitPayload {
   theme: 'light' | 'dark';
 }
 
+export interface DownloadsPopoverShowPayload {
+  screenX: number;
+  screenY: number;
+  theme: 'light' | 'dark';
+}
+
+export interface DownloadsPopoverInitPayload {
+  theme: 'light' | 'dark';
+  downloads: DownloadSnapshot[];
+}
+
 export const IPC_CHANNELS = {
   TOGGLE_FLOAT: 'toggle-float',
   FLOAT_NAVIGATE: 'float-navigate',
@@ -112,6 +123,9 @@ export const IPC_CHANNELS = {
   DOWNLOADS_REMOVE: 'downloads-remove',
   DOWNLOADS_OPEN_FILE: 'downloads-open-file',
   DOWNLOADS_SHOW_IN_FOLDER: 'downloads-show-in-folder',
+  DOWNLOADS_POPOVER_SHOW: 'downloads-popover-show',
+  DOWNLOADS_POPOVER_INIT: 'downloads-popover-init',
+  DOWNLOADS_POPOVER_OPEN_PAGE: 'downloads-popover-open-page',
   MENU_SHOW: 'menu-show',
   MENU_INIT: 'menu-init',
   MENU_ACTION: 'menu-action',

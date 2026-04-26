@@ -7,6 +7,8 @@ import {
   parseBrowserBoundsPayload,
   parseDownloadDirectoryPayload,
   parseDownloadIdPayload,
+  parseDownloadsPopoverInitPayload,
+  parseDownloadsPopoverShowPayload,
   parseDownloadSnapshotsPayload,
   parseFloatNavigatePayload,
   parseHistorySnapshotsPayload,
@@ -21,6 +23,8 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadsPopoverInitPayload,
+  DownloadsPopoverShowPayload,
   DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
@@ -279,6 +283,40 @@ contextBridge.exposeInMainWorld('orb', {
 
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.DOWNLOADS_CHANGED, handler);
+    };
+  },
+
+  showDownloadsPopover: (payload: DownloadsPopoverShowPayload) => {
+    const safePayload = parseDownloadsPopoverShowPayload(payload);
+    if (!safePayload) {
+      return Promise.resolve();
+    }
+
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_POPOVER_SHOW, safePayload)
+      .then(() => undefined);
+  },
+
+  openDownloadsPageFromPopover: () => {
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_POPOVER_OPEN_PAGE)
+      .then(() => undefined);
+  },
+
+  onDownloadsPopoverInit: (callback: (payload: DownloadsPopoverInitPayload) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
+      const parsedPayload = parseDownloadsPopoverInitPayload(payload);
+      if (!parsedPayload) {
+        return;
+      }
+
+      callback(parsedPayload);
+    };
+
+    ipcRenderer.on(IPC_CHANNELS.DOWNLOADS_POPOVER_INIT, handler);
+
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.DOWNLOADS_POPOVER_INIT, handler);
     };
   },
 

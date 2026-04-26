@@ -5,6 +5,8 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadsPopoverInitPayload,
+  DownloadsPopoverShowPayload,
   DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
@@ -19,6 +21,8 @@ export type {
   BookmarkUpsertPayload,
   BrowserBounds,
   DownloadSnapshot,
+  DownloadsPopoverInitPayload,
+  DownloadsPopoverShowPayload,
   HistorySnapshot,
   MenuAction,
   MenuInitPayload,
@@ -196,6 +200,17 @@ const MenuShowPayloadSchema = z.object({
   theme: z.enum(['light', 'dark']),
 });
 
+const DownloadsPopoverShowPayloadSchema = z.object({
+  screenX: z.number(),
+  screenY: z.number(),
+  theme: z.enum(['light', 'dark']),
+});
+
+const DownloadsPopoverInitPayloadSchema = z.object({
+  theme: z.enum(['light', 'dark']),
+  downloads: DownloadSnapshotsPayloadSchema,
+});
+
 export function parseMenuActionPayload(payload: unknown): MenuAction | null {
   const result = MenuActionPayloadSchema.safeParse(payload);
   return result.success ? result.data : null;
@@ -203,6 +218,20 @@ export function parseMenuActionPayload(payload: unknown): MenuAction | null {
 
 export function parseMenuShowPayload(payload: unknown): MenuShowPayload | null {
   const result = MenuShowPayloadSchema.safeParse(payload);
+  return result.success ? result.data : null;
+}
+
+export function parseDownloadsPopoverShowPayload(
+  payload: unknown,
+): DownloadsPopoverShowPayload | null {
+  const result = DownloadsPopoverShowPayloadSchema.safeParse(payload);
+  return result.success ? result.data : null;
+}
+
+export function parseDownloadsPopoverInitPayload(
+  payload: unknown,
+): DownloadsPopoverInitPayload | null {
+  const result = DownloadsPopoverInitPayloadSchema.safeParse(payload);
   return result.success ? result.data : null;
 }
 

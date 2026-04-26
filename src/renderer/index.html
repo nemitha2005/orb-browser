@@ -7,126 +7,181 @@
   <title>Orb</title>
 </head>
 <body class="flex h-screen flex-col overflow-hidden bg-orb-bg text-orb-text">
-  <div id="tabbar" class="[-webkit-app-region:drag] flex items-center gap-1 bg-orb-bg px-3 py-1.5">
-    <div id="tabs" class="flex flex-1 gap-1 overflow-hidden"></div>
-    <button id="btn-new-tab" title="New tab (Cmd+T)" class="[-webkit-app-region:no-drag] flex h-[26px] w-[26px] items-center justify-center rounded-orb border-0 bg-orb-surface text-lg leading-none text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">+</button>
+  <!-- ── Tab bar ──────────────────────────────────────── -->
+  <div id="tabbar" class="[-webkit-app-region:drag] flex items-end gap-1 border-b border-orb-border bg-orb-bg px-2 pt-2">
+    <div id="tabs" class="flex min-w-0 flex-1 gap-[2px] overflow-hidden"></div>
+    <button
+      id="btn-new-tab"
+      title="New tab (Ctrl+T)"
+      class="[-webkit-app-region:no-drag] mb-[1px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-accent"
+    ></button>
   </div>
 
-  <div id="navbar" class="flex items-center gap-1 bg-orb-bg px-3 pb-2 pt-1.5">
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-back" title="Back"></button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-forward" title="Forward"></button>
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-reload" title="Reload"></button>
-    <input id="address-bar" type="text" placeholder="Search or enter a URL…" spellcheck="false" class="mx-1 h-8 flex-1 rounded-orb border border-orb-border bg-orb-surface px-3 text-[13px] text-orb-text outline-none transition focus:border-orb-accent" />
-    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent" id="btn-bookmark" title="Bookmark this page (Ctrl+D)"></button>
-    <div class="relative">
-      <button id="btn-downloads-indicator" title="Downloads (Ctrl+J)" class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text">
-        <span id="downloads-indicator-count" class="absolute -right-1 -top-1 hidden min-w-[14px] rounded-full bg-orb-accent px-1 text-center text-[9px] font-bold leading-[14px] text-white">0</span>
-      </button>
-      <div id="downloads-popover" class="absolute right-0 top-9 z-30 hidden w-[320px] rounded-orb border border-orb-border bg-orb-surface shadow-[0_10px_24px_rgba(0,0,0,0.32)]">
-        <div class="border-b border-orb-border px-3 py-2">
-          <p class="text-[10px] uppercase tracking-[1px] text-orb-text-dim">Downloads</p>
-        </div>
-        <div id="downloads-popover-list" class="max-h-[240px] overflow-y-auto px-2 py-2"></div>
-        <div id="downloads-popover-empty" class="px-3 py-4 text-[12px] text-orb-text-dim">No active downloads.</div>
-        <div class="border-t border-orb-border px-3 py-2">
-          <button id="btn-downloads-popover-open" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Open downloads page</button>
-        </div>
-      </div>
+  <!-- ── Nav bar ──────────────────────────────────────── -->
+  <div id="navbar" class="flex items-center gap-1.5 border-b border-orb-border bg-orb-bg px-3 py-2">
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent" id="btn-back"    title="Back"></button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent" id="btn-forward" title="Forward"></button>
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent" id="btn-reload"  title="Reload"></button>
+
+    <!-- Address bar with prompt prefix -->
+    <div class="mx-1 flex flex-1 items-center rounded-orb border border-orb-border bg-orb-surface transition focus-within:border-orb-accent" style="box-shadow: none;">
+      <span class="shrink-0 select-none pl-3 font-mono text-[13px] font-semibold text-orb-accent" style="line-height:1;">›</span>
+      <input
+        id="address-bar"
+        type="text"
+        placeholder="search or navigate..."
+        spellcheck="false"
+        class="h-8 flex-1 border-0 bg-transparent px-2 text-[12px] text-orb-text outline-none"
+      />
     </div>
-    <button id="btn-float" title="Floating search (Ctrl+Shift+O)" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0 bg-orb-accent text-white transition hover:bg-orb-accent-dim"></button>
+
+    <button class="nav-btn flex h-7 w-7 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent" id="btn-bookmark" title="Bookmark this page (Ctrl+D)"></button>
+
+    <!-- Downloads indicator -->
+    <div id="downloads-indicator-shell" class="relative hidden">
+      <button id="btn-downloads-indicator" title="Downloads (Ctrl+J)" class="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text">
+        <span id="downloads-indicator-count" class="absolute -right-1 -top-1 hidden min-w-[14px] rounded-full bg-orb-accent px-1 text-center font-mono text-[9px] font-bold leading-[14px] text-white" style="box-shadow:0 0 6px var(--orb-accent-glow);">0</span>
+        <span id="downloads-indicator-progress-track" class="pointer-events-none absolute bottom-[3px] left-[5px] hidden h-[2px] w-[18px] overflow-hidden rounded-full bg-orb-surface-2">
+          <span id="downloads-indicator-progress" class="block h-full w-0 rounded-full bg-orb-accent transition-[width] duration-200" style="box-shadow:0 0 4px var(--orb-accent-glow);"></span>
+        </span>
+      </button>
+    </div>
+
+    <!-- Float button – glowing accent -->
+    <button id="btn-float" title="Floating search (Ctrl+Shift+O)" class="orb-btn-float flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0"></button>
+
+    <!-- Menu button -->
     <button id="btn-menu" title="Orb menu" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-orb border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface hover:text-orb-text"></button>
   </div>
 
-  <div id="loading-bar" class="hidden h-[2px] overflow-hidden bg-orb-surface">
-    <div class="orb-loading-fill h-full w-2/5 bg-orb-accent"></div>
+  <!-- ── Loading bar ──────────────────────────────────── -->
+  <div id="loading-bar" class="hidden h-[2px] overflow-hidden bg-orb-surface-2">
+    <div class="orb-loading-fill h-full w-2/5"></div>
   </div>
 
-  <div id="bookmark-bar" class="flex items-center gap-1 border-y border-orb-border bg-orb-surface px-2 py-1">
+  <!-- ── Bookmark bar ─────────────────────────────────── -->
+  <div id="bookmark-bar" class="flex items-center gap-1 border-b border-orb-border bg-orb-surface px-2 py-1">
     <div id="bookmark-bar-list" class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1"></div>
-    <span id="bookmark-bar-empty" class="shrink-0 px-1 text-[11px] text-orb-text-dim">Bookmark sites for quick access</span>
+    <span id="bookmark-bar-empty" class="shrink-0 px-1 font-mono text-[10px] tracking-[1px] text-orb-text-dim opacity-60">NO BOOKMARKS YET</span>
   </div>
 
-  <div id="bookmark-editor" class="hidden items-center gap-2 border-b border-orb-border bg-orb-bg px-2 py-1.5">
-    <span class="shrink-0 font-mono text-[10px] uppercase tracking-[1px] text-orb-text-dim">Save bookmark</span>
-    <input id="bookmark-editor-title" type="text" placeholder="Name" spellcheck="false" class="h-7 min-w-0 flex-[1.2] rounded-orb border border-orb-border bg-orb-surface px-2 text-[12px] text-orb-text outline-none transition focus:border-orb-accent" />
-    <input id="bookmark-editor-url" type="text" placeholder="URL" spellcheck="false" class="h-7 min-w-0 flex-[2] rounded-orb border border-orb-border bg-orb-surface px-2 text-[12px] text-orb-text outline-none transition focus:border-orb-accent" />
-    <button id="bookmark-editor-save" class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-accent px-2.5 text-[11px] font-semibold text-white transition hover:bg-orb-accent-dim">Save</button>
-    <button id="bookmark-editor-cancel" class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-surface px-2.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Cancel</button>
+  <!-- ── Bookmark editor ──────────────────────────────── -->
+  <div id="bookmark-editor" class="hidden items-center gap-2 border-b border-orb-border bg-orb-bg px-3 py-1.5">
+    <span class="shrink-0 font-mono text-[9px] uppercase tracking-[1.5px] text-orb-accent">// bookmark</span>
+    <input id="bookmark-editor-title" type="text" placeholder="name" spellcheck="false"
+      class="h-7 min-w-0 flex-[1.2] rounded-orb border border-orb-border bg-orb-surface px-2 font-mono text-[12px] text-orb-text outline-none transition focus:border-orb-accent" />
+    <input id="bookmark-editor-url" type="text" placeholder="url" spellcheck="false"
+      class="h-7 min-w-0 flex-[2] rounded-orb border border-orb-border bg-orb-surface px-2 font-mono text-[12px] text-orb-text outline-none transition focus:border-orb-accent" />
+    <button id="bookmark-editor-save" class="h-7 shrink-0 rounded-orb border border-orb-accent bg-orb-accent px-3 font-mono text-[11px] font-semibold text-white transition hover:bg-orb-accent-dim" style="box-shadow:0 0 10px var(--orb-accent-glow);">Save</button>
+    <button id="bookmark-editor-cancel" class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-surface px-3 font-mono text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Cancel</button>
   </div>
 
+  <!-- ── Browser layout ──────────────────────────────── -->
   <div id="browser-layout" class="relative flex flex-1 overflow-hidden">
+
+    <!-- Browser area + new tab page -->
     <div id="browser-area" class="relative flex-1 overflow-hidden bg-white">
-      <div id="new-tab-page" class="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-orb-bg">
-        <h1 class="bg-gradient-to-br from-orb-accent to-orange-300 bg-clip-text text-[52px] font-extrabold tracking-[-2px] text-transparent">Orb</h1>
-        <p class="font-mono text-xs uppercase tracking-[1.5px] text-orb-text-dim">Build-focused browser workspace</p>
-        <input id="new-tab-search" type="text" placeholder="Search or enter a URL…" autofocus spellcheck="false" class="h-[46px] w-[500px] max-w-[92vw] rounded-xl border border-orb-border bg-orb-surface px-5 text-[15px] text-orb-text outline-none transition focus:border-orb-accent" />
-        <p class="hint text-xs text-orb-text-dim opacity-70">
-          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+T</kbd> new tab &nbsp;·&nbsp;
-          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+W</kbd> close tab &nbsp;·&nbsp;
-          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+D</kbd> bookmark page &nbsp;·&nbsp;
-          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+H</kbd> history &nbsp;·&nbsp;
-          <kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[11px]">Cmd+J</kbd> downloads
-        </p>
+
+      <!-- New tab page – developer workspace hero -->
+      <div id="new-tab-page" class="absolute inset-0 flex flex-col items-center justify-center gap-8 bg-orb-bg">
+
+        <!-- Brand -->
+        <div class="flex flex-col items-center gap-2">
+          <span class="bg-gradient-to-br from-orb-accent via-orange-400 to-yellow-300 bg-clip-text font-mono text-[72px] font-black leading-none tracking-[-5px] text-transparent" style="text-shadow:none;filter:drop-shadow(0 0 40px var(--orb-accent-glow));">ORB</span>
+          <p class="font-mono text-[10px] uppercase tracking-[3px] text-orb-text-dim">// developer browser workspace</p>
+        </div>
+
+        <!-- Terminal-style search -->
+        <div class="relative w-[520px] max-w-[92vw]">
+          <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 select-none font-mono text-[15px] font-bold text-orb-accent">›</span>
+          <input
+            id="new-tab-search"
+            type="text"
+            placeholder="search or navigate..."
+            autofocus
+            spellcheck="false"
+            class="h-[50px] w-full rounded-orb border border-orb-border bg-orb-surface pl-10 pr-5 font-mono text-[14px] text-orb-text outline-none"
+          />
+        </div>
+
+        <!-- Keyboard shortcuts – code-style -->
+        <div class="flex flex-wrap justify-center gap-x-5 gap-y-1.5 font-mono text-[11px] text-orb-text-dim">
+          <span><kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[10px] text-orb-text">Ctrl+T</kbd> new tab</span>
+          <span><kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[10px] text-orb-text">Ctrl+W</kbd> close</span>
+          <span><kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[10px] text-orb-text">Ctrl+D</kbd> bookmark</span>
+          <span><kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[10px] text-orb-text">Ctrl+H</kbd> history</span>
+          <span><kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[10px] text-orb-text">Ctrl+J</kbd> downloads</span>
+          <span><kbd class="rounded border border-orb-border bg-orb-surface-2 px-1.5 py-0.5 text-[10px] text-orb-text">Ctrl+Shift+O</kbd> float</span>
+        </div>
       </div>
     </div>
 
-    <aside id="bookmarks-sidebar" class="hidden flex w-[320px] shrink-0 flex-col border-l border-orb-border bg-orb-surface">
+    <!-- ── Bookmarks sidebar ───────────────────────────── -->
+    <aside id="bookmarks-sidebar" class="hidden flex w-[300px] shrink-0 flex-col border-l border-orb-border bg-orb-surface">
       <div class="flex items-center justify-between border-b border-orb-border px-3 py-2">
-        <h2 class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">Bookmarks</h2>
-        <button id="btn-bookmarks-close" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" title="Close bookmarks sidebar">Close</button>
+        <h2 class="font-mono text-[9px] uppercase tracking-[1.8px] text-orb-accent">// bookmarks</h2>
+        <button id="btn-bookmarks-close" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">close</button>
       </div>
       <ul id="bookmarks-list" class="max-h-full flex-1 overflow-y-auto px-2 py-2"></ul>
-      <p id="bookmarks-empty" class="px-3 py-4 text-sm text-orb-text-dim">No bookmarks yet. Open a page and press the star.</p>
-      <div class="border-t border-orb-border px-3 py-2">
-        <button id="btn-bookmarks-detailed" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">See detailed bookmarks view</button>
+      <p id="bookmarks-empty" class="px-3 py-4 font-mono text-[11px] text-orb-text-dim">no bookmarks yet. open a page and press the star.</p>
+      <div class="border-t border-orb-border px-2 py-2">
+        <button id="btn-bookmarks-detailed" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">→ detailed view</button>
       </div>
     </aside>
 
-    <aside id="history-sidebar" class="hidden flex w-[360px] shrink-0 flex-col border-l border-orb-border bg-orb-surface">
+    <!-- ── History sidebar ────────────────────────────── -->
+    <aside id="history-sidebar" class="hidden flex w-[340px] shrink-0 flex-col border-l border-orb-border bg-orb-surface">
       <div class="flex items-center justify-between border-b border-orb-border px-3 py-2">
-        <h2 class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">History</h2>
+        <h2 class="font-mono text-[9px] uppercase tracking-[1.8px] text-orb-accent">// history</h2>
         <div class="flex items-center gap-1">
-          <button id="btn-history-clear" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Clear</button>
-          <button id="btn-history-close" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" title="Close history sidebar">Close</button>
+          <button id="btn-history-clear" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">clear</button>
+          <button id="btn-history-close" class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">close</button>
         </div>
       </div>
       <ul id="history-list" class="max-h-full flex-1 overflow-y-auto px-2 py-2"></ul>
-      <p id="history-empty" class="px-3 py-4 text-sm text-orb-text-dim">No history yet. Start browsing and entries will appear here.</p>
-      <div class="border-t border-orb-border px-3 py-2">
-        <button id="btn-history-detailed" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">See detailed history view</button>
+      <p id="history-empty" class="px-3 py-4 font-mono text-[11px] text-orb-text-dim">no history yet. start browsing.</p>
+      <div class="border-t border-orb-border px-2 py-2">
+        <button id="btn-history-detailed" class="w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">→ detailed view</button>
       </div>
     </aside>
 
-    <div id="full-page-view" class="absolute inset-0 hidden overflow-y-auto bg-orb-bg px-4 py-4">
-      <div class="mx-auto flex w-full max-w-[980px] flex-col gap-4">
-        <div class="flex items-center justify-between border-b border-orb-border pb-2">
-          <h2 id="full-page-title" class="font-mono text-xs uppercase tracking-[1.2px] text-orb-text-dim">Detailed View</h2>
-          <button id="btn-full-page-close" class="rounded-orb border border-orb-border bg-orb-surface px-2.5 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Close</button>
+    <!-- ── Full-page panels (bookmarks / history / downloads) ── -->
+    <div id="full-page-view" class="absolute inset-0 hidden overflow-y-auto bg-orb-bg px-5 py-5">
+      <div class="mx-auto flex w-full max-w-[900px] flex-col gap-4">
+
+        <!-- Panel header -->
+        <div class="flex items-center justify-between border-b border-orb-border pb-3">
+          <h2 id="full-page-title" class="font-mono text-[10px] uppercase tracking-[2px] text-orb-accent"></h2>
+          <button id="btn-full-page-close" class="rounded-orb border border-orb-border bg-orb-surface px-3 py-1 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">✕ close</button>
         </div>
 
+        <!-- Bookmarks panel -->
         <div id="full-page-bookmarks" class="hidden">
           <div id="full-page-bookmarks-list" class="grid grid-cols-1 gap-2 md:grid-cols-2"></div>
-          <p id="full-page-bookmarks-empty" class="mt-4 text-sm text-orb-text-dim">No bookmarks yet.</p>
+          <p id="full-page-bookmarks-empty" class="mt-4 font-mono text-[12px] text-orb-text-dim">no bookmarks yet.</p>
         </div>
 
+        <!-- History panel -->
         <div id="full-page-history" class="hidden">
-          <div class="mb-2 flex justify-end">
-            <button id="btn-full-page-history-clear" class="rounded-orb border border-orb-border bg-orb-surface px-2.5 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Clear history</button>
+          <div class="mb-3 flex justify-end">
+            <button id="btn-full-page-history-clear" class="rounded-orb border border-orb-border bg-orb-surface px-3 py-1 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">clear history</button>
           </div>
-          <ul id="full-page-history-list" class="space-y-2"></ul>
-          <p id="full-page-history-empty" class="mt-4 text-sm text-orb-text-dim">No history yet.</p>
+          <ul id="full-page-history-list" class="space-y-1.5"></ul>
+          <p id="full-page-history-empty" class="mt-4 font-mono text-[12px] text-orb-text-dim">no history yet.</p>
         </div>
 
+        <!-- Downloads panel -->
         <div id="full-page-downloads" class="hidden">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-orb border border-orb-border bg-orb-surface px-3 py-2">
+          <!-- Download folder row -->
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-orb border border-orb-border bg-orb-surface px-4 py-3">
             <div class="min-w-0">
-              <p class="text-[10px] uppercase tracking-[1px] text-orb-text-dim">Download folder</p>
-              <p id="download-directory-value" class="max-w-[70vw] overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">Not set</p>
+              <p class="font-mono text-[9px] uppercase tracking-[1.5px] text-orb-text-dim">download_dir</p>
+              <p id="download-directory-value" class="max-w-[65vw] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[12px] text-orb-text">not set</p>
             </div>
-            <button id="btn-download-directory-select" class="shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2.5 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text">Change folder</button>
+            <button id="btn-download-directory-select" class="shrink-0 rounded-orb border border-orb-border bg-orb-bg px-3 py-1.5 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text">change folder</button>
           </div>
           <div id="full-page-downloads-list" class="grid grid-cols-1 gap-2"></div>
-          <p id="full-page-downloads-empty" class="mt-4 text-sm text-orb-text-dim">No downloads yet.</p>
+          <p id="full-page-downloads-empty" class="mt-4 font-mono text-[12px] text-orb-text-dim">no downloads yet.</p>
         </div>
       </div>
     </div>

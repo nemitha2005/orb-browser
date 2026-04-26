@@ -96,12 +96,17 @@ const btnBack = document.getElementById('btn-back') as HTMLButtonElement;
 const btnForward = document.getElementById('btn-forward') as HTMLButtonElement;
 const btnReload = document.getElementById('btn-reload') as HTMLButtonElement;
 const btnBookmark = document.getElementById('btn-bookmark') as HTMLButtonElement;
+const downloadsIndicatorShell = document.getElementById(
+  'downloads-indicator-shell',
+) as HTMLDivElement;
 const btnDownloadsIndicator = document.getElementById('btn-downloads-indicator') as HTMLButtonElement;
 const downloadsIndicatorCount = document.getElementById('downloads-indicator-count') as HTMLSpanElement;
-const downloadsPopover = document.getElementById('downloads-popover') as HTMLDivElement;
-const downloadsPopoverList = document.getElementById('downloads-popover-list') as HTMLDivElement;
-const downloadsPopoverEmpty = document.getElementById('downloads-popover-empty') as HTMLDivElement;
-const btnDownloadsPopoverOpen = document.getElementById('btn-downloads-popover-open') as HTMLButtonElement;
+const downloadsIndicatorProgressTrack = document.getElementById(
+  'downloads-indicator-progress-track',
+) as HTMLSpanElement;
+const downloadsIndicatorProgress = document.getElementById(
+  'downloads-indicator-progress',
+) as HTMLSpanElement;
 const btnHistoryClear = document.getElementById('btn-history-clear') as HTMLButtonElement;
 const btnFloat = document.getElementById('btn-float') as HTMLButtonElement;
 const btnMenu = document.getElementById('btn-menu') as HTMLButtonElement;
@@ -116,8 +121,13 @@ btnReload.innerHTML = ICONS.reload;
 btnDownloadsIndicator.insertAdjacentHTML('afterbegin', ICONS.downloads);
 btnFloat.innerHTML = ICONS.float;
 btnMenu.innerHTML = ICONS.menu;
+btnNewTab.innerHTML = ICONS.plus;
 
-let isDownloadsPopoverOpen = false;
+let hasUnseenDownloads = false;
+let knownDownloadIds = new Set<string>();
+
+// Per-tab internal route – each tab keeps its own orb:// page state
+const tabInternalRoutes = new Map<number, 'history' | 'bookmarks' | 'downloads'>();
 
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
@@ -310,18 +320,23 @@ function formatBytes(value: number): string {
 
 function getDownloadStateLabel(stateValue: DownloadSnapshot['state']): string {
   switch (stateValue) {
-    case 'progressing':
-      return 'Downloading';
-    case 'paused':
-      return 'Paused';
-    case 'completed':
-      return 'Completed';
+    case 'progressing': return 'downloading';
+    case 'paused':      return 'paused';
+    case 'completed':   return 'done';
+    case 'cancelled':   return 'cancelled';
+    case 'interrupted': return 'interrupted';
+    default:            return 'unknown';
+  }
+}
+
+function getDownloadBadgeClass(stateValue: DownloadSnapshot['state']): string {
+  switch (stateValue) {
+    case 'progressing': return 'orb-badge orb-badge-active';
+    case 'paused':      return 'orb-badge orb-badge-paused';
+    case 'completed':   return 'orb-badge orb-badge-done';
     case 'cancelled':
-      return 'Cancelled';
-    case 'interrupted':
-      return 'Interrupted';
-    default:
-      return 'Unknown';
+    case 'interrupted': return 'orb-badge orb-badge-error';
+    default:            return 'orb-badge orb-badge-error';
   }
 }
 
@@ -331,47 +346,51 @@ function getActiveDownloads(): DownloadSnapshot[] {
   });
 }
 
-function setDownloadsPopoverOpen(isOpen: boolean): void {
-  if (isDownloadsPopoverOpen === isOpen) {
-    return;
-  }
-
-  isDownloadsPopoverOpen = isOpen;
-  render();
+function requestNewTab(): void {
+  requestTabCreate(window.orb);
 }
 
 function renderDownloadsIndicator(): void {
   const activeDownloads = getActiveDownloads();
   const activeCount = activeDownloads.length;
+  const hasAnyDownloads = state.downloads.length > 0;
+
+  // Keep visible as long as there are any downloads (like Chrome)
+  downloadsIndicatorShell.classList.toggle('hidden', !hasAnyDownloads);
 
   downloadsIndicatorCount.textContent = String(activeCount);
   downloadsIndicatorCount.classList.toggle('hidden', activeCount === 0);
-  btnDownloadsIndicator.classList.toggle('text-orb-accent', activeCount > 0);
-  btnDownloadsIndicator.classList.toggle('text-orb-text-dim', activeCount === 0);
+  btnDownloadsIndicator.classList.toggle('text-orb-accent', activeCount > 0 || hasUnseenDownloads);
+  btnDownloadsIndicator.classList.toggle(
+    'text-orb-text-dim',
+    activeCount === 0 && !hasUnseenDownloads,
+  );
 
-  downloadsPopover.classList.toggle('hidden', !isDownloadsPopoverOpen);
-  downloadsPopoverList.innerHTML = '';
+  const shouldShowProgress = activeCount > 0;
+  let aggregateProgress = 0;
+  if (activeCount > 0) {
+    const bytesTotals = activeDownloads.reduce(
+      (accumulator, download) => {
+        return {
+          receivedBytes: accumulator.receivedBytes + download.receivedBytes,
+          totalBytes: accumulator.totalBytes + Math.max(0, download.totalBytes),
+        };
+      },
+      { receivedBytes: 0, totalBytes: 0 },
+    );
 
-  const hasActiveDownloads = activeDownloads.length > 0;
-  downloadsPopoverEmpty.classList.toggle('hidden', hasActiveDownloads);
+    if (bytesTotals.totalBytes > 0) {
+      aggregateProgress = Math.round((bytesTotals.receivedBytes / bytesTotals.totalBytes) * 100);
+    } else {
+      const percentTotal = activeDownloads.reduce((accumulator, download) => {
+        return accumulator + download.percent;
+      }, 0);
+      aggregateProgress = Math.round(percentTotal / activeCount);
+    }
+  }
 
-  activeDownloads.slice(0, 6).forEach(download => {
-    const row = document.createElement('button');
-    row.className =
-      'mb-1 w-full rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-left transition hover:bg-orb-surface-2 last:mb-0';
-    row.setAttribute('data-popover-download-id', download.id);
-    row.innerHTML = `
-      <div class="flex items-center justify-between gap-2">
-        <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">${escapeHtml(download.fileName)}</span>
-        <span class="shrink-0 text-[10px] text-orb-text-dim">${download.percent}%</span>
-      </div>
-      <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-orb-surface">
-        <div class="h-full bg-orb-accent" style="width:${Math.max(0, Math.min(100, download.percent))}%"></div>
-      </div>
-    `;
-
-    downloadsPopoverList.appendChild(row);
-  });
+  downloadsIndicatorProgressTrack.classList.toggle('hidden', !shouldShowProgress);
+  downloadsIndicatorProgress.style.width = `${Math.max(0, Math.min(100, aggregateProgress))}%`;
 }
 
 function syncBrowserBounds(): void {
@@ -411,6 +430,15 @@ function resolveInternalRoute(input: string): 'history' | 'bookmarks' | 'downloa
   return null;
 }
 
+function updateTabCompactMode(): void {
+  if (state.tabs.length === 0) {
+    tabsContainer.classList.remove('compact');
+    return;
+  }
+  const perTabPx = tabsContainer.offsetWidth / state.tabs.length;
+  tabsContainer.classList.toggle('compact', perTabPx < 72);
+}
+
 function renderTabs(): void {
   tabsContainer.innerHTML = '';
 
@@ -418,13 +446,25 @@ function renderTabs(): void {
     const tabElement = document.createElement('div');
     tabElement.className = `tab${tab.id === state.activeTabId ? ' active' : ''}`;
     tabElement.dataset.id = String(tab.id);
+
+    const faviconUrl = tab.url ? getSiteFaviconUrl(tab.url) : '';
+    const iconContent = faviconUrl
+      ? `<img class="tab-fav" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
+      : `<span class="tab-fav-ph"></span>`;
+
     tabElement.innerHTML = `
+      <div class="tab-ic">
+        ${iconContent}
+        <button class="tab-close-cpt" data-close-id="${tab.id}" title="Close tab">✕</button>
+      </div>
       <span class="tab-title">${escapeHtml(tab.title || 'New Tab')}</span>
-      <button class="tab-close" data-close-id="${tab.id}">✕</button>
+      <button class="tab-close-std" data-close-id="${tab.id}" title="Close tab">✕</button>
     `;
 
     tabsContainer.appendChild(tabElement);
   });
+
+  updateTabCompactMode();
 }
 
 function renderNavigation(): void {
@@ -501,12 +541,12 @@ function renderBookmarkBar(): void {
 
     const bookmarkChip = document.createElement('button');
     bookmarkChip.className =
-      'flex h-7 max-w-[220px] items-center gap-1.5 rounded-orb border border-orb-border bg-orb-bg px-2 text-left transition hover:bg-orb-surface-2';
+      'flex h-6 max-w-[200px] items-center gap-1.5 rounded-orb border border-orb-border bg-orb-bg px-2 text-left transition hover:border-orb-border-hi hover:bg-orb-surface-2';
     bookmarkChip.setAttribute('data-bookmark-bar-open-id', String(bookmark.id));
     bookmarkChip.title = bookmark.url;
     bookmarkChip.innerHTML = `
       ${faviconMarkup}
-      <span class="max-w-[170px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
+      <span class="max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
     `;
 
     bookmarkBarList.appendChild(bookmarkChip);
@@ -528,12 +568,12 @@ function renderBookmarksSidebar(): void {
     const bookmarkElement = document.createElement('li');
     bookmarkElement.className = 'mb-1 last:mb-0';
     bookmarkElement.innerHTML = `
-      <div class="flex items-start gap-1 rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5">
+      <div class="flex items-start gap-1 rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 transition hover:border-orb-border-hi hover:bg-orb-surface-2">
         <button class="flex min-w-0 flex-1 flex-col items-start bg-transparent text-left" data-bookmark-open-id="${bookmark.id}" title="${escapeHtml(bookmark.url)}">
-          <span class="w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
-          <span class="w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-orb-text-dim">${escapeHtml(bookmark.url)}</span>
+          <span class="w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
+          <span class="w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-orb-text-dim">${escapeHtml(bookmark.url)}</span>
         </button>
-        <button class="h-6 w-6 shrink-0 rounded border-0 bg-transparent text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" data-bookmark-remove-id="${bookmark.id}" title="Remove bookmark">×</button>
+        <button class="h-6 w-6 shrink-0 rounded border-0 bg-transparent font-mono text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-accent" data-bookmark-remove-id="${bookmark.id}" title="Remove bookmark">×</button>
       </div>
     `;
 
@@ -558,12 +598,12 @@ function renderHistorySidebar(): void {
     const historyElement = document.createElement('li');
     historyElement.className = 'mb-1 last:mb-0';
     historyElement.innerHTML = `
-      <button class="flex w-full items-start gap-2 rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-left transition hover:bg-orb-surface-2" data-history-open-id="${historyEntry.id}" title="${escapeHtml(historyEntry.url)}">
-        <img src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" class="mt-[1px] h-4 w-4 shrink-0 rounded-sm bg-white/80" />
+      <button class="flex w-full items-start gap-2 rounded-orb border border-orb-border bg-orb-bg px-2 py-1.5 text-left transition hover:border-orb-border-hi hover:bg-orb-surface-2" data-history-open-id="${historyEntry.id}" title="${escapeHtml(historyEntry.url)}">
+        <img src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" class="mt-[2px] h-4 w-4 shrink-0 rounded-sm bg-white/80" />
         <span class="min-w-0 flex-1">
-          <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-orb-text">${escapeHtml(historyEntry.title || historyEntry.url)}</span>
-          <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-orb-text-dim">${escapeHtml(historyEntry.url)}</span>
-          <span class="mt-0.5 block text-[10px] text-orb-text-dim">${escapeHtml(formatHistoryTimestamp(historyEntry.lastVisitedAt))} • ${historyEntry.visitCount} visits</span>
+          <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-orb-text">${escapeHtml(historyEntry.title || historyEntry.url)}</span>
+          <span class="block w-full overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-orb-text-dim">${escapeHtml(historyEntry.url)}</span>
+          <span class="mt-0.5 block font-mono text-[10px] text-orb-text-dim">${escapeHtml(formatHistoryTimestamp(historyEntry.lastVisitedAt))} · ${historyEntry.visitCount}×</span>
         </span>
       </button>
     `;
@@ -594,13 +634,13 @@ function renderFullPageView(): void {
     state.bookmarks.forEach(bookmark => {
       const card = document.createElement('article');
       card.className =
-        'flex items-start gap-2 rounded-orb border border-orb-border bg-orb-surface px-3 py-2';
+        'flex items-start gap-2 rounded-orb border border-orb-border bg-orb-surface px-3 py-2 transition hover:border-orb-border-hi';
       card.innerHTML = `
         <button class="min-w-0 flex-1 bg-transparent text-left" data-full-bookmark-open-id="${bookmark.id}" title="${escapeHtml(bookmark.url)}">
-          <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
-          <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-orb-text-dim">${escapeHtml(bookmark.url)}</span>
+          <span class="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[12px] text-orb-text">${escapeHtml(bookmark.title || bookmark.url)}</span>
+          <span class="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-orb-text-dim">${escapeHtml(bookmark.url)}</span>
         </button>
-        <button class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text" data-full-bookmark-remove-id="${bookmark.id}">Remove</button>
+        <button class="h-7 shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text" data-full-bookmark-remove-id="${bookmark.id}">remove</button>
       `;
 
       fullPageBookmarksList.appendChild(card);
@@ -619,7 +659,7 @@ function renderFullPageView(): void {
 
     state.downloads.forEach(download => {
       const card = document.createElement('article');
-      card.className = 'rounded-orb border border-orb-border bg-orb-surface p-3';
+      card.className = 'rounded-orb border border-orb-border bg-orb-surface p-3 transition hover:border-orb-border-hi';
 
       const progressWidth = Math.max(0, Math.min(100, download.percent));
       const isActive = download.state === 'progressing' || download.state === 'paused';
@@ -628,32 +668,34 @@ function renderFullPageView(): void {
       const canCancel = isActive;
       const canRemove = !isActive;
       const isCompleted = download.state === 'completed';
-      const totalBytesText = download.totalBytes > 0 ? formatBytes(download.totalBytes) : 'Unknown size';
+      const totalBytesText = download.totalBytes > 0 ? formatBytes(download.totalBytes) : 'unknown size';
       const progressMarkup = isActive
-        ? `<div class="mb-2 h-2 overflow-hidden rounded-full bg-orb-bg"><div class="h-full bg-orb-accent transition-[width] duration-200" style="width: ${progressWidth}%"></div></div>`
+        ? `<div class="mb-3 h-[3px] overflow-hidden rounded-full bg-orb-surface-2"><div class="orb-progress-fill" style="width:${progressWidth}%"></div></div>`
         : '';
+      const actionBtn = (label: string, attr: string, id: string, disabled: boolean): string =>
+        `<button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 font-mono text-[10px] text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-30" ${attr}="${escapeHtml(id)}" ${disabled ? 'disabled' : ''}>${label}</button>`;
 
       card.innerHTML = `
-        <div class="mb-2 flex items-start justify-between gap-3">
+        <div class="mb-2.5 flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
-            <h3 class="truncate text-[13px] font-semibold text-orb-text" title="${escapeHtml(download.fileName)}">${escapeHtml(download.fileName)}</h3>
-            <p class="truncate text-[11px] text-orb-text-dim" title="${escapeHtml(download.savePath)}">${escapeHtml(download.savePath)}</p>
+            <h3 class="truncate font-mono text-[12px] font-semibold text-orb-text" title="${escapeHtml(download.fileName)}">${escapeHtml(download.fileName)}</h3>
+            <p class="truncate font-mono text-[10px] text-orb-text-dim" title="${escapeHtml(download.savePath)}">${escapeHtml(download.savePath)}</p>
           </div>
-          <span class="shrink-0 rounded-orb border border-orb-border bg-orb-bg px-2 py-[2px] text-[10px] uppercase tracking-[0.7px] text-orb-text-dim">${escapeHtml(getDownloadStateLabel(download.state))}</span>
+          <span class="${getDownloadBadgeClass(download.state)}">${escapeHtml(getDownloadStateLabel(download.state))}</span>
         </div>
         ${progressMarkup}
-        <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-orb-text-dim">
-          <span>${download.percent}%</span>
+        <div class="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-orb-text-dim">
+          <span class="text-orb-accent">${download.percent}%</span>
           <span>${escapeHtml(formatBytes(download.receivedBytes))} / ${escapeHtml(totalBytesText)}</span>
           <span>${escapeHtml(formatBytes(download.speedBytesPerSecond))}/s</span>
         </div>
-        <div class="flex flex-wrap gap-1.5">
-          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-pause-id="${escapeHtml(download.id)}" ${canPause ? '' : 'disabled'}>Pause</button>
-          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-resume-id="${escapeHtml(download.id)}" ${canResume ? '' : 'disabled'}>Resume</button>
-          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-cancel-id="${escapeHtml(download.id)}" ${canCancel ? '' : 'disabled'}>Cancel</button>
-          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-open-id="${escapeHtml(download.id)}" ${isCompleted ? '' : 'disabled'}>Open</button>
-          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-show-id="${escapeHtml(download.id)}" ${isCompleted ? '' : 'disabled'}>Show in Explorer</button>
-          <button class="rounded-orb border border-orb-border bg-orb-bg px-2 py-1 text-[11px] text-orb-text-dim transition hover:bg-orb-surface-2 hover:text-orb-text disabled:cursor-default disabled:opacity-40" data-download-remove-id="${escapeHtml(download.id)}" ${canRemove ? '' : 'disabled'}>Remove</button>
+        <div class="flex flex-wrap gap-1">
+          ${actionBtn('pause',        'data-download-pause-id',  download.id, !canPause)}
+          ${actionBtn('resume',       'data-download-resume-id', download.id, !canResume)}
+          ${actionBtn('cancel',       'data-download-cancel-id', download.id, !canCancel)}
+          ${actionBtn('open',         'data-download-open-id',   download.id, !isCompleted)}
+          ${actionBtn('show in explorer', 'data-download-show-id', download.id, !isCompleted)}
+          ${actionBtn('remove',       'data-download-remove-id', download.id, !canRemove)}
         </div>
       `;
 
@@ -671,12 +713,12 @@ function renderFullPageView(): void {
 
   state.history.forEach(historyEntry => {
     const row = document.createElement('li');
-    row.className = 'rounded-orb border border-orb-border bg-orb-surface px-3 py-2';
+    row.className = 'rounded-orb border border-orb-border bg-orb-surface px-3 py-2 transition hover:border-orb-border-hi hover:bg-orb-surface-2';
     row.innerHTML = `
       <button class="w-full bg-transparent text-left" data-full-history-open-id="${historyEntry.id}" title="${escapeHtml(historyEntry.url)}">
-        <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-orb-text">${escapeHtml(historyEntry.title || historyEntry.url)}</span>
-        <span class="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-orb-text-dim">${escapeHtml(historyEntry.url)}</span>
-        <span class="mt-1 block text-[11px] text-orb-text-dim">${escapeHtml(formatHistoryTimestamp(historyEntry.lastVisitedAt))} • ${historyEntry.visitCount} visits</span>
+        <span class="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[12px] text-orb-text">${escapeHtml(historyEntry.title || historyEntry.url)}</span>
+        <span class="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-orb-text-dim">${escapeHtml(historyEntry.url)}</span>
+        <span class="mt-0.5 block font-mono text-[10px] text-orb-text-dim">${escapeHtml(formatHistoryTimestamp(historyEntry.lastVisitedAt))} · ${historyEntry.visitCount}×</span>
       </button>
     `;
 
@@ -697,8 +739,21 @@ function render(): void {
 }
 
 function applyState(nextState: TabsStateSnapshot): void {
+  // Remove routes for tabs that were closed
+  const liveIds = new Set(nextState.tabs.map(t => t.id));
+  for (const id of tabInternalRoutes.keys()) {
+    if (!liveIds.has(id)) tabInternalRoutes.delete(id);
+  }
+
   state.tabs = nextState.tabs;
   state.activeTabId = nextState.activeTabId;
+
+  // Restore the internal page that belongs to the newly active tab
+  state.fullPageView =
+    nextState.activeTabId !== null
+      ? (tabInternalRoutes.get(nextState.activeTabId) ?? null)
+      : null;
+
   render();
   syncBrowserBounds();
 }
@@ -714,12 +769,19 @@ function applyHistory(nextHistory: HistorySnapshot[]): void {
 }
 
 function applyDownloads(nextDownloads: DownloadSnapshot[]): void {
+  const hasNewDownload = nextDownloads.some(download => !knownDownloadIds.has(download.id));
+  if (hasNewDownload) {
+    hasUnseenDownloads = true;
+  }
+
+  knownDownloadIds = new Set(nextDownloads.map(download => download.id));
   state.downloads = nextDownloads;
   render();
 }
 
 function setBookmarksSidebarOpen(isOpen: boolean): void {
   if (state.fullPageView) {
+    if (state.activeTabId !== null) tabInternalRoutes.delete(state.activeTabId);
     state.fullPageView = null;
   }
 
@@ -742,6 +804,7 @@ function toggleBookmarksSidebar(): void {
 
 function setHistorySidebarOpen(isOpen: boolean): void {
   if (state.fullPageView) {
+    if (state.activeTabId !== null) tabInternalRoutes.delete(state.activeTabId);
     state.fullPageView = null;
   }
 
@@ -782,11 +845,20 @@ function setFullPageView(view: 'history' | 'bookmarks' | 'downloads' | null): vo
     return;
   }
 
-  if (isDownloadsPopoverOpen) {
-    isDownloadsPopoverOpen = false;
+  state.fullPageView = view;
+
+  // Keep the per-tab map in sync so switching back restores the right page
+  if (state.activeTabId !== null) {
+    if (view !== null) {
+      tabInternalRoutes.set(state.activeTabId, view);
+    } else {
+      tabInternalRoutes.delete(state.activeTabId);
+    }
   }
 
-  state.fullPageView = view;
+  if (view === 'downloads') {
+    hasUnseenDownloads = false;
+  }
 
   if (view) {
     state.isBookmarksSidebarOpen = false;
@@ -807,6 +879,7 @@ function navigate(input: string): void {
   }
 
   if (state.fullPageView) {
+    if (state.activeTabId !== null) tabInternalRoutes.delete(state.activeTabId);
     state.fullPageView = null;
   }
 
@@ -837,10 +910,22 @@ function openMenu(): void {
   });
 }
 
+function openDownloadsPopoverWindow(): void {
+  const rect = btnDownloadsIndicator.getBoundingClientRect();
+  hasUnseenDownloads = false;
+  render();
+
+  void window.orb.showDownloadsPopover({
+    screenX: window.screenX + Math.round(rect.right),
+    screenY: window.screenY + Math.round(rect.bottom),
+    theme: getCurrentTheme(),
+  });
+}
+
 function handleMenuAction(action: MenuAction): void {
   switch (action) {
     case MENU_ACTIONS.NEW_TAB:
-      requestTabCreate(window.orb);
+      requestNewTab();
       break;
     case MENU_ACTIONS.TOGGLE_BOOKMARKS:
       toggleBookmarksSidebar();
@@ -867,7 +952,7 @@ function handleMenuAction(action: MenuAction): void {
 }
 
 btnNewTab.addEventListener('click', () => {
-  requestTabCreate(window.orb);
+  requestNewTab();
 });
 
 btnBack.addEventListener('click', () => {
@@ -928,27 +1013,7 @@ btnDownloadDirectorySelect.addEventListener('click', () => {
 
 btnDownloadsIndicator.addEventListener('click', event => {
   event.stopPropagation();
-  setDownloadsPopoverOpen(!isDownloadsPopoverOpen);
-});
-
-btnDownloadsPopoverOpen.addEventListener('click', () => {
-  setDownloadsPopoverOpen(false);
-  setFullPageView('downloads');
-});
-
-downloadsPopoverList.addEventListener('click', event => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  const row = target.closest<HTMLElement>('[data-popover-download-id]');
-  if (!row) {
-    return;
-  }
-
-  setDownloadsPopoverOpen(false);
-  setFullPageView('downloads');
+  openDownloadsPopoverWindow();
 });
 
 btnFloat.addEventListener('click', () => {
@@ -1238,23 +1303,6 @@ fullPageDownloadsList.addEventListener('click', event => {
   }
 });
 
-document.addEventListener('click', event => {
-  if (!isDownloadsPopoverOpen) {
-    return;
-  }
-
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  if (target.closest('#downloads-popover') || target.closest('#btn-downloads-indicator')) {
-    return;
-  }
-
-  setDownloadsPopoverOpen(false);
-});
-
 unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
   // Float window already triggers main-process navigation; we mirror address text here.
   addressBar.value = url;
@@ -1281,12 +1329,6 @@ unsubscribeMenuAction = window.orb.onMenuAction(action => {
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && isDownloadsPopoverOpen) {
-    event.preventDefault();
-    setDownloadsPopoverOpen(false);
-    return;
-  }
-
   if (event.key === 'Escape' && state.isBookmarkEditorOpen) {
     event.preventDefault();
     closeBookmarkEditor();
@@ -1303,7 +1345,7 @@ document.addEventListener('keydown', event => {
 
   if (mod && event.key.toLowerCase() === 't') {
     event.preventDefault();
-    requestTabCreate(window.orb);
+    requestNewTab();
     return;
   }
 
@@ -1358,6 +1400,7 @@ document.addEventListener('keydown', event => {
 
 window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
+new ResizeObserver(updateTabCompactMode).observe(tabsContainer);
 
 window.addEventListener('beforeunload', () => {
   themeMediaQuery.removeEventListener('change', onThemePreferenceChanged);
@@ -1401,6 +1444,6 @@ window.orb.getDownloadDirectory().then(initialDirectory => {
 window.orb.getTabsState().then(initialState => {
   applyState(initialState);
   if (initialState.tabs.length === 0) {
-    requestTabCreate(window.orb);
+    requestNewTab();
   }
 });

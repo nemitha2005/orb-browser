@@ -4,110 +4,327 @@
 
 @layer base {
   :root {
-    --orb-bg: #f7f3eb;
-    --orb-surface: #fffaf2;
-    --orb-surface-2: #f2e8da;
-    --orb-border: #e2d3bc;
-    --orb-accent: #e77a14;
-    --orb-accent-dim: #c55e07;
-    --orb-accent-soft: #ffe7cf;
-    --orb-text: #211b14;
-    --orb-text-dim: #6e5f4f;
+    --orb-bg: #f4efe4;
+    --orb-surface: #fdf8ee;
+    --orb-surface-2: #ece3cf;
+    --orb-border: #d2c0a4;
+    --orb-border-hi: #a8906e;
+    --orb-accent: #e8720c;
+    --orb-accent-dim: #c45507;
+    --orb-accent-soft: #fde3c8;
+    --orb-accent-glow: rgba(232, 114, 12, 0.2);
+    --orb-text: #18120a;
+    --orb-text-dim: #6a5840;
+    --orb-green: #16a34a;
+    --orb-red: #dc2626;
+    --orb-yellow: #b45309;
     color-scheme: light;
   }
 
   html[data-theme='dark'] {
-    --orb-bg: #14100b;
-    --orb-surface: #1e1812;
-    --orb-surface-2: #2a2219;
-    --orb-border: #3a2f23;
-    --orb-accent: #ff9f3f;
-    --orb-accent-dim: #df7f1f;
-    --orb-accent-soft: #3b2712;
-    --orb-text: #f4eee4;
-    --orb-text-dim: #b6a68f;
+    --orb-bg: #0b0804;
+    --orb-surface: #131009;
+    --orb-surface-2: #1c160e;
+    --orb-border: #2b2016;
+    --orb-border-hi: #4a3822;
+    --orb-accent: #ff9130;
+    --orb-accent-dim: #dd7012;
+    --orb-accent-soft: #251508;
+    --orb-accent-glow: rgba(255, 145, 48, 0.24);
+    --orb-text: #f0e8d4;
+    --orb-text-dim: #988870;
+    --orb-green: #4ade80;
+    --orb-red: #f87171;
+    --orb-yellow: #fbbf24;
     color-scheme: dark;
   }
 
-  * {
-    @apply box-border;
-  }
+  * { @apply box-border; }
 
-  html,
-  body {
+  html, body {
     @apply m-0 p-0;
     background-color: var(--orb-bg);
     color: var(--orb-text);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
-  body {
-    position: relative;
-  }
+  body { position: relative; }
 
+  /* Subtle accent corner glows – no grid */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     pointer-events: none;
-    opacity: 0.34;
+    z-index: 0;
     background-image:
-      linear-gradient(to right, color-mix(in srgb, var(--orb-border) 45%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in srgb, var(--orb-border) 45%, transparent) 1px, transparent 1px),
-      radial-gradient(circle at top right, color-mix(in srgb, var(--orb-accent) 22%, transparent), transparent 48%);
-    background-size: 22px 22px, 22px 22px, auto;
-    z-index: -1;
+      radial-gradient(ellipse at 88% 2%, color-mix(in srgb, var(--orb-accent) 32%, transparent) 0%, transparent 44%),
+      radial-gradient(ellipse at 12% 98%, color-mix(in srgb, var(--orb-accent) 14%, transparent) 0%, transparent 38%);
+    background-size: 100% 100%, 100% 100%;
+    opacity: 0.18;
   }
 
-  html[data-theme='dark'] body::before {
-    opacity: 0.22;
-  }
+  html[data-theme='dark'] body::before { opacity: 0.42; }
 
-  #tabbar {
-    -webkit-app-region: drag;
-  }
+  /* Thin accent scrollbars */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--orb-border-hi); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--orb-accent); }
 
-  #navbar,
-  button,
-  input,
-  .tab,
-  .tab-close {
-    -webkit-app-region: no-drag;
-  }
+  #tabbar { -webkit-app-region: drag; }
+  #navbar, button, input, .tab, .tab-close { -webkit-app-region: no-drag; }
 }
 
+/* ─── Animations ──────────────────────────────────────── */
+
 @keyframes orb-loading-sweep {
-  0% { transform: translateX(-100%); }
+  0%   { transform: translateX(-100%); }
   100% { transform: translateX(500%); }
 }
 
+@keyframes orb-progress-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes orb-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ─── Components ──────────────────────────────────────── */
+
 @layer components {
+
+  /* Loading bar – gradient + glow */
   .orb-loading-fill {
     animation: orb-loading-sweep 1.4s ease-in-out infinite;
-    transform-origin: left center;
+    background: linear-gradient(90deg,
+      var(--orb-accent-dim),
+      var(--orb-accent),
+      color-mix(in srgb, var(--orb-accent) 55%, white));
+    box-shadow: 0 0 12px var(--orb-accent-glow), 0 0 4px var(--orb-accent);
   }
 
+  /* ─ IDE-style tabs ─ */
   .tab {
-    @apply [-webkit-app-region:no-drag] flex max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-orb border border-orb-border bg-orb-surface px-2.5 py-[5px] text-xs text-orb-text-dim transition;
+    @apply [-webkit-app-region:no-drag] relative flex cursor-pointer items-center rounded-t-orb border border-b-0 border-orb-border bg-orb-surface py-[5px] text-orb-text-dim;
+    flex: 1 1 0px;
+    min-width: 28px;   /* absolute floor: just favicon + padding */
+    max-width: 180px;
+    overflow: hidden;
+    gap: 6px;
+    padding-left: 7px;
+    padding-right: 7px;
+    transition: background 130ms, border-color 130ms, color 130ms;
   }
 
   .tab:hover {
-    @apply bg-orb-surface-2 text-orb-text;
+    background-color: var(--orb-surface-2);
+    color: var(--orb-text);
+    border-color: var(--orb-border-hi);
   }
 
   .tab.active {
-    @apply border-orb-accent bg-orb-surface-2 text-orb-text;
+    background-color: var(--orb-surface-2);
+    color: var(--orb-text);
+    border-color: var(--orb-border-hi);
   }
 
+  /* Active top accent stripe */
+  .tab.active::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--orb-accent);
+    border-radius: 3px 3px 0 0;
+    box-shadow: 0 0 8px var(--orb-accent-glow);
+  }
+
+  /* ─ Favicon slot (favicon + compact-close share same space) ─ */
+  .tab-ic {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .tab-fav {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    object-fit: contain;
+    transition: opacity 100ms;
+  }
+
+  .tab-fav-ph {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--orb-border);
+    opacity: 0.45;
+  }
+
+  /* Compact close: sits on top of favicon, invisible until compact+hover */
+  .tab-close-cpt {
+    position: absolute;
+    inset: -3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    border: 0;
+    background: transparent;
+    color: var(--orb-text-dim);
+    font-size: 9px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0;
+    z-index: 1;
+    transition: opacity 100ms, background 100ms, color 100ms;
+    -webkit-app-region: no-drag;
+  }
+
+  /* ─ Tab title ─ */
   .tab-title {
-    @apply max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    letter-spacing: 0.015em;
   }
 
-  .tab-close {
-    @apply rounded border-0 bg-transparent px-1 py-0.5 text-[10px] leading-none text-orb-text-dim transition;
+  /* Standard close: right side, shown on hover for wide tabs */
+  .tab-close-std {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 0;
+    background: transparent;
+    color: var(--orb-text-dim);
+    font-size: 10px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 100ms, background 100ms, color 100ms;
+    -webkit-app-region: no-drag;
   }
 
-  .tab-close:hover {
-    @apply bg-orb-accent-soft text-orb-text;
+  .tab:hover .tab-close-std { opacity: 1; }
+  .tab-close-std:hover { background: var(--orb-accent-soft); color: var(--orb-accent); }
+  .tab-close-cpt:hover { background: var(--orb-accent-soft); color: var(--orb-accent); }
+
+  /* ─ Compact mode: favicon-only tabs, close overlays favicon on hover ─ */
+  #tabs.compact .tab { gap: 0; padding-left: 7px; padding-right: 7px; }
+  #tabs.compact .tab-title  { display: none; }
+  #tabs.compact .tab-close-std { display: none; }
+  #tabs.compact .tab:hover .tab-fav    { opacity: 0; }
+  #tabs.compact .tab:hover .tab-fav-ph { opacity: 0; }
+  #tabs.compact .tab:hover .tab-close-cpt {
+    opacity: 1;
+    background: var(--orb-surface-2);
+  }
+
+  /* ─ Address bar – monospace + focus glow ─ */
+  #address-bar {
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.01em;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  #address-bar:focus {
+    border-color: var(--orb-accent);
+    box-shadow: 0 0 0 2px var(--orb-accent-glow), 0 0 16px var(--orb-accent-glow);
+    outline: none;
+  }
+
+  /* ─ New tab search – terminal style ─ */
+  #new-tab-search {
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', monospace;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  #new-tab-search:focus {
+    border-color: var(--orb-accent);
+    box-shadow: 0 0 0 2px var(--orb-accent-glow), 0 0 24px var(--orb-accent-glow);
+    outline: none;
+  }
+
+  /* ─ Download progress bar ─ */
+  .orb-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orb-accent-dim), var(--orb-accent));
+    box-shadow: 0 0 8px var(--orb-accent-glow);
+    transition: width 220ms ease;
+  }
+
+  /* ─ State badges (downloads) ─ */
+  .orb-badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .orb-badge-active {
+    color: var(--orb-accent);
+    border-color: color-mix(in srgb, var(--orb-accent) 38%, transparent);
+    background: var(--orb-accent-soft);
+  }
+
+  .orb-badge-paused {
+    color: var(--orb-yellow);
+    border-color: color-mix(in srgb, var(--orb-yellow) 38%, transparent);
+    background: color-mix(in srgb, var(--orb-yellow) 10%, transparent);
+  }
+
+  .orb-badge-done {
+    color: var(--orb-green);
+    border-color: color-mix(in srgb, var(--orb-green) 38%, transparent);
+    background: color-mix(in srgb, var(--orb-green) 10%, transparent);
+  }
+
+  .orb-badge-error {
+    color: var(--orb-red);
+    border-color: color-mix(in srgb, var(--orb-red) 38%, transparent);
+    background: color-mix(in srgb, var(--orb-red) 10%, transparent);
+  }
+
+  /* ─ Accent glow button (float) ─ */
+  .orb-btn-float {
+    background-color: var(--orb-accent);
+    color: #fff;
+    box-shadow: 0 0 14px var(--orb-accent-glow), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: background 120ms, box-shadow 120ms;
+  }
+
+  .orb-btn-float:hover {
+    background-color: var(--orb-accent-dim);
+    box-shadow: 0 0 22px var(--orb-accent-glow), inset 0 1px 0 rgba(255,255,255,0.12);
   }
 }
