@@ -72,6 +72,7 @@ export default defineConfig({
           index: resolve(__dirname, 'src/renderer/index.html'),
           float: resolve(__dirname, 'src/renderer/float.html'),
           menu: resolve(__dirname, 'src/renderer/menu.html'),
+          'downloads-popover': resolve(__dirname, 'src/renderer/downloads-popover.html'),
         },
         output: {
           // Use deterministic renderer entry names for simple diagnostics.

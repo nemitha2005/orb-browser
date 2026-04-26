@@ -8,6 +8,7 @@ import {
   parseBookmarkUpsertPayload,
   parseBrowserBoundsPayload,
   parseDownloadIdPayload,
+  parseDownloadsPopoverShowPayload,
   parseFloatNavigatePayload,
   parseMenuActionPayload,
   parseMenuShowPayload,
@@ -15,11 +16,12 @@ import {
   parseTabIdPayload,
   parseTabNavigatePayload,
 } from '../shared/ipc';
-import { IPC_CHANNELS } from '../shared/ipc-contract';
+import { IPC_CHANNELS, MENU_ACTIONS } from '../shared/ipc-contract';
 import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadsPopoverInitPayload,
   DownloadSnapshot,
   HistorySnapshot,
   TabSnapshot,
@@ -33,6 +35,7 @@ const VITE_DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
 const RENDERER_DIST = path.join(__dirname, '../renderer');
 const TABS_SESSION_KEY = 'tabsSession';
 const DOWNLOADS_DIRECTORY_KEY = 'downloadsDirectory';
+const DOWNLOADS_HISTORY_KEY = 'downloadsHistory';
 const MAX_RESTORED_TABS = 20;
 const HISTORY_LIST_LIMIT = 200;
 const DOWNLOADS_LIST_LIMIT = 200;
@@ -50,9 +53,24 @@ interface PersistedTabSession {
   activeTabIndex: number;
 }
 
+interface PersistedDownloadHistoryRecord {
+  id: string;
+  url: string;
+  fileName: string;
+  savePath: string;
+  totalBytes: number;
+  receivedBytes: number;
+  state: ManagedDownloadState;
+  startedAt: string;
+  updatedAt: string;
+  speedBytesPerSecond: number;
+  canResume: boolean;
+}
+
 interface PersistedStateSchema {
   tabsSession: PersistedTabSession;
   downloadsDirectory: string;
+  downloadsHistory: PersistedDownloadHistoryRecord[];
 }
 
 type ManagedDownloadState =
@@ -80,12 +98,17 @@ interface ManagedDownload {
 }
 
 const MENU_WIDTH = 220;
-const MENU_HEIGHT = 272;
+const MENU_HEIGHT = 360;
+const DOWNLOADS_POPOVER_WIDTH = 320;
+const DOWNLOADS_POPOVER_HEIGHT = 280;
 
 let mainWindow: BrowserWindow | null = null;
 let floatWindow: BrowserWindow | null = null;
 let menuWindow: BrowserWindow | null = null;
 let menuWindowReady = false;
+let downloadsPopoverWindow: BrowserWindow | null = null;
+let downloadsPopoverWindowReady = false;
+let downloadsPopoverTheme: 'light' | 'dark' = 'dark';
 let attachedView: BrowserView | null = null;
 let nextTabId = 1;
 let activeTabId: number | null = null;
@@ -110,6 +133,7 @@ function getPersistedStateStore(): Store<PersistedStateSchema> {
           activeTabIndex: 0,
         },
         downloadsDirectory: app.getPath('downloads'),
+        downloadsHistory: [],
       },
     });
   }
@@ -235,6 +259,101 @@ function findManagedDownload(downloadId: string): ManagedDownload | undefined {
   return managedDownloads.find(download => download.id === downloadId);
 }
 
+function normalizePersistedDownloadState(state: ManagedDownloadState): ManagedDownloadState {
+  // Active download states are not resumable across app restarts.
+  if (state === 'progressing' || state === 'paused') {
+    return 'interrupted';
+  }
+
+  return state;
+}
+
+function persistDownloadsHistory(): void {
+  const persistedHistory: PersistedDownloadHistoryRecord[] = managedDownloads.map(download => {
+    return {
+      id: download.id,
+      url: download.url,
+      fileName: download.fileName,
+      savePath: download.savePath,
+      totalBytes: Math.max(0, download.totalBytes),
+      receivedBytes: Math.max(0, download.receivedBytes),
+      state: normalizePersistedDownloadState(download.state),
+      startedAt: download.startedAt,
+      updatedAt: download.updatedAt,
+      speedBytesPerSecond: Math.max(0, download.speedBytesPerSecond),
+      canResume: false,
+    };
+  });
+
+  try {
+    getPersistedStateStore().set(DOWNLOADS_HISTORY_KEY, persistedHistory);
+  } catch (error) {
+    console.error('[main] failed to persist downloads history', error);
+  }
+}
+
+function restoreDownloadsHistory(): void {
+  let persistedHistory: PersistedDownloadHistoryRecord[];
+
+  try {
+    persistedHistory = getPersistedStateStore().get(DOWNLOADS_HISTORY_KEY);
+  } catch (error) {
+    console.error('[main] failed to read downloads history', error);
+    return;
+  }
+
+  if (!Array.isArray(persistedHistory) || persistedHistory.length === 0) {
+    managedDownloads = [];
+    return;
+  }
+
+  const nowMs = Date.now();
+  const restoredDownloads = persistedHistory
+    .filter(download => {
+      return (
+        typeof download.id === 'string' &&
+        typeof download.url === 'string' &&
+        typeof download.fileName === 'string' &&
+        typeof download.savePath === 'string' &&
+        typeof download.totalBytes === 'number' &&
+        Number.isFinite(download.totalBytes) &&
+        typeof download.receivedBytes === 'number' &&
+        Number.isFinite(download.receivedBytes) &&
+        typeof download.state === 'string' &&
+        ['progressing', 'paused', 'completed', 'cancelled', 'interrupted'].includes(download.state) &&
+        typeof download.startedAt === 'string' &&
+        typeof download.updatedAt === 'string' &&
+        typeof download.speedBytesPerSecond === 'number' &&
+        Number.isFinite(download.speedBytesPerSecond) &&
+        typeof download.canResume === 'boolean'
+      );
+    })
+    .map(download => {
+      const normalizedState = normalizePersistedDownloadState(download.state);
+      const safeReceivedBytes = Math.max(0, Math.trunc(download.receivedBytes));
+
+      return {
+        id: download.id,
+        url: download.url,
+        fileName: download.fileName,
+        savePath: download.savePath,
+        totalBytes: Math.max(0, Math.trunc(download.totalBytes)),
+        receivedBytes: safeReceivedBytes,
+        state: normalizedState,
+        startedAt: download.startedAt,
+        updatedAt: download.updatedAt,
+        speedBytesPerSecond: 0,
+        canResume: false,
+        item: null,
+        lastBytesSample: safeReceivedBytes,
+        lastSampleAtMs: nowMs,
+      } satisfies ManagedDownload;
+    });
+
+  managedDownloads = restoredDownloads;
+  trimManagedDownloads();
+}
+
 // Renderer pages should only navigate to local files (or devtools in development).
 function isTrustedAppUrl(rawUrl: string): boolean {
   try {
@@ -353,11 +472,27 @@ function emitHistoryChanged(): void {
 }
 
 function emitDownloadsChanged(): void {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return;
+  persistDownloadsHistory();
+
+  const downloadsSnapshot = getDownloadsSnapshot();
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.DOWNLOADS_CHANGED, downloadsSnapshot);
   }
 
-  mainWindow.webContents.send(IPC_CHANNELS.DOWNLOADS_CHANGED, getDownloadsSnapshot());
+  if (downloadsPopoverWindow && !downloadsPopoverWindow.isDestroyed()) {
+    const downloadsPopoverPayload: DownloadsPopoverInitPayload = {
+      theme: downloadsPopoverTheme,
+      downloads: downloadsSnapshot.filter(download => {
+        return download.state === 'progressing' || download.state === 'paused';
+      }),
+    };
+
+    downloadsPopoverWindow.webContents.send(
+      IPC_CHANNELS.DOWNLOADS_POPOVER_INIT,
+      downloadsPopoverPayload,
+    );
+  }
 }
 
 function registerDownloadSessionHandlers(): void {
@@ -586,6 +721,18 @@ function closeMenuWindow(): void {
   const windowToClose = menuWindow;
   menuWindow = null;
   menuWindowReady = false;
+  windowToClose.close();
+}
+
+function closeDownloadsPopoverWindow(): void {
+  if (!downloadsPopoverWindow || downloadsPopoverWindow.isDestroyed()) {
+    downloadsPopoverWindow = null;
+    return;
+  }
+
+  const windowToClose = downloadsPopoverWindow;
+  downloadsPopoverWindow = null;
+  downloadsPopoverWindowReady = false;
   windowToClose.close();
 }
 
@@ -952,6 +1099,7 @@ function createMainWindow(): void {
     destroyAllTabs();
     closeFloatWindow();
     closeMenuWindow();
+    closeDownloadsPopoverWindow();
     mainWindow = null;
   });
 }
@@ -1042,6 +1190,54 @@ function createMenuWindow(): void {
   });
 }
 
+function createDownloadsPopoverWindow(): void {
+  downloadsPopoverWindowReady = false;
+  downloadsPopoverWindow = new BrowserWindow({
+    width: DOWNLOADS_POPOVER_WIDTH,
+    height: DOWNLOADS_POPOVER_HEIGHT,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    show: false,
+    backgroundColor: '#1e1812',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
+
+  if (VITE_DEV_SERVER_URL) {
+    const popoverDevUrl = new URL('downloads-popover.html', VITE_DEV_SERVER_URL).toString();
+    downloadsPopoverWindow.loadURL(popoverDevUrl).catch(error => {
+      console.error('[main] failed to load downloads popover dev URL', error);
+    });
+  } else {
+    downloadsPopoverWindow
+      .loadFile(path.join(RENDERER_DIST, 'downloads-popover.html'))
+      .catch(error => {
+        console.error('[main] failed to load downloads popover renderer file', error);
+      });
+  }
+
+  downloadsPopoverWindow.webContents.on('did-finish-load', () => {
+    downloadsPopoverWindowReady = true;
+  });
+
+  downloadsPopoverWindow.on('blur', () => {
+    downloadsPopoverWindow?.hide();
+  });
+
+  downloadsPopoverWindow.on('closed', () => {
+    downloadsPopoverWindow = null;
+    downloadsPopoverWindowReady = false;
+  });
+}
+
 ipcMain.handle(IPC_CHANNELS.TOGGLE_FLOAT, () => {
   if (!floatWindow || floatWindow.isDestroyed()) {
     createFloatWindow();
@@ -1119,6 +1315,73 @@ ipcMain.handle(IPC_CHANNELS.MENU_ACTION, (_event, payload: unknown) => {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.MENU_ACTION_RELAY, action);
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_POPOVER_SHOW, (_event, payload: unknown) => {
+  const safePayload = parseDownloadsPopoverShowPayload(payload);
+  if (!safePayload) {
+    return;
+  }
+
+  downloadsPopoverTheme = safePayload.theme;
+
+  if (!downloadsPopoverWindow || downloadsPopoverWindow.isDestroyed()) {
+    createDownloadsPopoverWindow();
+  }
+
+  if (!downloadsPopoverWindow) {
+    return;
+  }
+
+  const display = screen.getDisplayNearestPoint({
+    x: safePayload.screenX,
+    y: safePayload.screenY,
+  });
+  const { workArea } = display;
+
+  const popoverX = Math.max(
+    workArea.x,
+    Math.min(
+      safePayload.screenX - DOWNLOADS_POPOVER_WIDTH,
+      workArea.x + workArea.width - DOWNLOADS_POPOVER_WIDTH,
+    ),
+  );
+  const popoverY = Math.max(
+    workArea.y,
+    Math.min(
+      safePayload.screenY + 4,
+      workArea.y + workArea.height - DOWNLOADS_POPOVER_HEIGHT,
+    ),
+  );
+
+  downloadsPopoverWindow.setPosition(Math.round(popoverX), Math.round(popoverY));
+
+  const initPayload: DownloadsPopoverInitPayload = {
+    theme: downloadsPopoverTheme,
+    downloads: getDownloadsSnapshot().filter(download => {
+      return download.state === 'progressing' || download.state === 'paused';
+    }),
+  };
+
+  const sendAndShow = (): void => {
+    downloadsPopoverWindow?.webContents.send(IPC_CHANNELS.DOWNLOADS_POPOVER_INIT, initPayload);
+    downloadsPopoverWindow?.show();
+    downloadsPopoverWindow?.focus();
+  };
+
+  if (downloadsPopoverWindowReady) {
+    sendAndShow();
+  } else {
+    downloadsPopoverWindow.webContents.once('did-finish-load', sendAndShow);
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_POPOVER_OPEN_PAGE, () => {
+  downloadsPopoverWindow?.hide();
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.MENU_ACTION_RELAY, MENU_ACTIONS.OPEN_DOWNLOADS);
   }
 });
 
@@ -1380,10 +1643,12 @@ app.whenReady().then(() => {
   }
 
   restoreTabsSession();
+  restoreDownloadsHistory();
 
   createMainWindow();
   createFloatWindow();
   createMenuWindow();
+  createDownloadsPopoverWindow();
 
   app.on('activate', () => {
     if (!mainWindow || mainWindow.isDestroyed()) {
@@ -1397,6 +1662,10 @@ app.whenReady().then(() => {
     if (!menuWindow || menuWindow.isDestroyed()) {
       createMenuWindow();
     }
+
+    if (!downloadsPopoverWindow || downloadsPopoverWindow.isDestroyed()) {
+      createDownloadsPopoverWindow();
+    }
   });
 });
 
@@ -1405,6 +1674,7 @@ app.on('window-all-closed', () => {
     destroyAllTabs();
     closeFloatWindow();
     closeMenuWindow();
+    closeDownloadsPopoverWindow();
     storageLayer?.close();
     storageLayer = null;
     app.quit();

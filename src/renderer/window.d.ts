@@ -4,6 +4,8 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadsPopoverInitPayload,
+  DownloadsPopoverShowPayload,
   DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
@@ -45,6 +47,11 @@ declare global {
       openDownloadFile: (downloadId: string) => Promise<void>;
       showDownloadInFolder: (downloadId: string) => Promise<void>;
       onDownloadsChanged: (callback: (downloads: DownloadSnapshot[]) => void) => () => void;
+      showDownloadsPopover: (payload: DownloadsPopoverShowPayload) => Promise<void>;
+      openDownloadsPageFromPopover: () => Promise<void>;
+      onDownloadsPopoverInit: (
+        callback: (payload: DownloadsPopoverInitPayload) => void,
+      ) => () => void;
       clearHistory: () => Promise<HistorySnapshot[]>;
       onHistoryChanged: (callback: (history: HistorySnapshot[]) => void) => () => void;
       showMenu: (payload: MenuShowPayload) => Promise<void>;

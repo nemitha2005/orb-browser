@@ -3,6 +3,8 @@ import type {
   BookmarkSnapshot,
   BookmarkUpsertPayload,
   BrowserBounds,
+  DownloadsPopoverInitPayload,
+  DownloadsPopoverShowPayload,
   DownloadSnapshot,
   HistorySnapshot,
   MenuAction,
@@ -242,6 +244,19 @@ function isDownloadSnapshot(payload: unknown): payload is DownloadSnapshot {
   );
 }
 
+function isDownloadsPopoverInitPayload(payload: unknown): payload is DownloadsPopoverInitPayload {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const initPayload = payload as Record<string, unknown>;
+  return (
+    (initPayload.theme === 'light' || initPayload.theme === 'dark') &&
+    Array.isArray(initPayload.downloads) &&
+    initPayload.downloads.every(isDownloadSnapshot)
+  );
+}
+
 export function parseDownloadSnapshotsPayload(payload: unknown): DownloadSnapshot[] | null {
   if (!Array.isArray(payload)) {
     return null;
@@ -260,6 +275,35 @@ export function parseDownloadIdPayload(payload: unknown): string | null {
 
 export function parseDownloadDirectoryPayload(payload: unknown): string | null {
   return parseStringPayload(payload, 4096);
+}
+
+export function parseDownloadsPopoverShowPayload(
+  payload: unknown,
+): DownloadsPopoverShowPayload | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const p = payload as Record<string, unknown>;
+  if (typeof p.screenX !== 'number' || typeof p.screenY !== 'number') {
+    return null;
+  }
+
+  if (p.theme !== 'light' && p.theme !== 'dark') {
+    return null;
+  }
+
+  return {
+    screenX: p.screenX,
+    screenY: p.screenY,
+    theme: p.theme,
+  };
+}
+
+export function parseDownloadsPopoverInitPayload(
+  payload: unknown,
+): DownloadsPopoverInitPayload | null {
+  return isDownloadsPopoverInitPayload(payload) ? payload : null;
 }
 
 const validMenuActions: ReadonlySet<string> = new Set(Object.values(MENU_ACTIONS));
