@@ -5,10 +5,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https: ws:;" />
   <title>Orb Float</title>
 </head>
-<body class="flex h-screen items-center gap-3 overflow-hidden rounded-[14px] border-[1.5px] border-orb-accent bg-orb-surface px-[18px]">
-  <span class="icon shrink-0 text-lg text-orb-accent">◎</span>
-  <input id="input" type="text" placeholder="Quick search or URL…" autofocus spellcheck="false" class="flex-1 select-text border-0 bg-transparent text-[15px] text-orb-text outline-none placeholder:text-[#555]" />
-  <span class="hint shrink-0 font-mono text-[11px] text-orb-text-dim">Esc to close</span>
+<body class="flex h-screen items-center gap-3 overflow-hidden rounded-[10px] border border-orb-border bg-orb-surface px-[16px]" style="border-color:var(--orb-accent);box-shadow:0 0 0 1px var(--orb-accent-glow),0 8px 32px rgba(0,0,0,0.5),0 0 40px var(--orb-accent-glow);">
+  <span class="shrink-0 select-none font-mono text-[18px] font-bold text-orb-accent" style="line-height:1;">›</span>
+  <input id="input" type="text" placeholder="search or navigate..." autofocus spellcheck="false"
+    class="flex-1 select-text border-0 bg-transparent font-mono text-[14px] text-orb-text outline-none placeholder:text-orb-text-dim" />
+  <span class="shrink-0 font-mono text-[10px] uppercase tracking-[1px] text-orb-text-dim">esc</span>
 
   <script type="module" src="./float.ts"></script>
 </body>
