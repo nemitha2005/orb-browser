@@ -303,6 +303,12 @@ contextBridge.exposeInMainWorld('orb', {
       .then(() => undefined);
   },
 
+  resizeDownloadsPopover: (height: number) => {
+    return ipcRenderer
+      .invoke(IPC_CHANNELS.DOWNLOADS_POPOVER_RESIZE, height)
+      .then(() => undefined);
+  },
+
   onDownloadsPopoverInit: (callback: (payload: DownloadsPopoverInitPayload) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void => {
       const parsedPayload = parseDownloadsPopoverInitPayload(payload);

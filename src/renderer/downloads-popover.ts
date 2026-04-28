@@ -69,27 +69,23 @@ function renderDownloads(downloads: DownloadSnapshot[]): void {
          <div class="mt-1 font-mono text-[10px] text-orb-text-dim">${escapeHtml(formatBytes(download.receivedBytes))} / ${escapeHtml(totalBytesText)}</div>`
       : '';
 
-    let actionsMarkup = '';
-    if (isCompleted) {
-      actionsMarkup = `
-        <div class="mt-1.5 flex gap-1">
-          <button data-popover-open-id="${id}" style="${ACTION_BTN}">open</button>
-          <button data-popover-show-id="${id}" style="${ACTION_BTN}">show in folder</button>
-        </div>`;
-    } else if (isActive) {
-      const pauseBtn = download.state === 'progressing'
-        ? `<button data-popover-pause-id="${id}" style="${ACTION_BTN}">pause</button>`
-        : '';
-      const resumeBtn = download.state === 'paused' && download.canResume
-        ? `<button data-popover-resume-id="${id}" style="${ACTION_BTN}">resume</button>`
-        : '';
-      actionsMarkup = `
-        <div class="mt-1.5 flex gap-1">
-          ${pauseBtn}
-          ${resumeBtn}
-          <button data-popover-cancel-id="${id}" style="${ACTION_BTN}">cancel</button>
-        </div>`;
-    }
+    const canPause = download.state === 'progressing';
+    const canResume = download.state === 'paused' && download.canResume;
+    const canCancel = isActive;
+    const canRemove = !isActive;
+
+    const actionBtn = (label: string, attr: string, recordId: string, disabled: boolean): string =>
+      disabled ? '' : `<button ${attr}="${recordId}" style="${ACTION_BTN}">${label}</button>`;
+
+    const actionsMarkup = `
+      <div class="mt-1.5 flex flex-wrap gap-1">
+        ${actionBtn('pause',          'data-popover-pause-id',  id, !canPause)}
+        ${actionBtn('resume',         'data-popover-resume-id', id, !canResume)}
+        ${actionBtn('cancel',         'data-popover-cancel-id', id, !canCancel)}
+        ${actionBtn('open',           'data-popover-open-id',   id, !isCompleted)}
+        ${actionBtn('show in folder', 'data-popover-show-id',   id, !isCompleted)}
+        ${actionBtn('remove',         'data-popover-remove-id', id, !canRemove)}
+      </div>`;
 
     item.innerHTML = `
       <div class="flex items-center justify-between gap-2">
@@ -101,6 +97,20 @@ function renderDownloads(downloads: DownloadSnapshot[]): void {
     `;
 
     downloadsList.appendChild(item);
+  });
+
+  requestAnimationFrame(() => {
+    const parentContainer = document.querySelector('.rounded-orb') as HTMLElement;
+    if (parentContainer) {
+      void window.orb.resizeDownloadsPopover(parentContainer.offsetHeight);
+    }
+  });
+
+  requestAnimationFrame(() => {
+    const parentContainer = document.querySelector('.rounded-orb') as HTMLElement;
+    if (parentContainer) {
+      void window.orb.resizeDownloadsPopover(parentContainer.offsetHeight);
+    }
   });
 }
 
@@ -122,7 +132,10 @@ downloadsList.addEventListener('click', event => {
   if (resumeId) { void window.orb.resumeDownload(resumeId); return; }
 
   const cancelId = target.closest<HTMLElement>('[data-popover-cancel-id]')?.getAttribute('data-popover-cancel-id');
-  if (cancelId) { void window.orb.cancelDownload(cancelId); }
+  if (cancelId) { void window.orb.cancelDownload(cancelId); return; }
+
+  const removeId = target.closest<HTMLElement>('[data-popover-remove-id]')?.getAttribute('data-popover-remove-id');
+  if (removeId) { void window.orb.removeDownload(removeId); }
 });
 
 window.orb.onDownloadsPopoverInit((payload: DownloadsPopoverInitPayload) => {
