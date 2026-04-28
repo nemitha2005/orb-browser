@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(xargs wc *)",
+      "Bash(xargs ls *)",
+      "Bash(git checkout *)"
+    ]
+  }
+}

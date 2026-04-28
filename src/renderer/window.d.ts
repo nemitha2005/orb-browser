@@ -49,6 +49,7 @@ declare global {
       onDownloadsChanged: (callback: (downloads: DownloadSnapshot[]) => void) => () => void;
       showDownloadsPopover: (payload: DownloadsPopoverShowPayload) => Promise<void>;
       openDownloadsPageFromPopover: () => Promise<void>;
+      resizeDownloadsPopover: (height: number) => Promise<void>;
       onDownloadsPopoverInit: (
         callback: (payload: DownloadsPopoverInitPayload) => void,
       ) => () => void;

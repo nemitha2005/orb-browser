@@ -125,6 +125,7 @@ export const IPC_CHANNELS = {
   DOWNLOADS_SHOW_IN_FOLDER: 'downloads-show-in-folder',
   DOWNLOADS_POPOVER_SHOW: 'downloads-popover-show',
   DOWNLOADS_POPOVER_INIT: 'downloads-popover-init',
+  DOWNLOADS_POPOVER_RESIZE: 'downloads-popover-resize',
   DOWNLOADS_POPOVER_OPEN_PAGE: 'downloads-popover-open-page',
   MENU_SHOW: 'menu-show',
   MENU_INIT: 'menu-init',

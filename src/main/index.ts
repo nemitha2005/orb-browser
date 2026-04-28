@@ -100,7 +100,7 @@ interface ManagedDownload {
 const MENU_WIDTH = 220;
 const MENU_HEIGHT = 360;
 const DOWNLOADS_POPOVER_WIDTH = 320;
-const DOWNLOADS_POPOVER_HEIGHT = 280;
+const DOWNLOADS_POPOVER_HEIGHT = 480;
 
 let mainWindow: BrowserWindow | null = null;
 let floatWindow: BrowserWindow | null = null;
@@ -483,9 +483,7 @@ function emitDownloadsChanged(): void {
   if (downloadsPopoverWindow && !downloadsPopoverWindow.isDestroyed()) {
     const downloadsPopoverPayload: DownloadsPopoverInitPayload = {
       theme: downloadsPopoverTheme,
-      downloads: downloadsSnapshot.filter(download => {
-        return download.state === 'progressing' || download.state === 'paused';
-      }),
+      downloads: downloadsSnapshot.slice(0, 5),
     };
 
     downloadsPopoverWindow.webContents.send(
@@ -1359,9 +1357,7 @@ ipcMain.handle(IPC_CHANNELS.DOWNLOADS_POPOVER_SHOW, (_event, payload: unknown) =
 
   const initPayload: DownloadsPopoverInitPayload = {
     theme: downloadsPopoverTheme,
-    downloads: getDownloadsSnapshot().filter(download => {
-      return download.state === 'progressing' || download.state === 'paused';
-    }),
+    downloads: getDownloadsSnapshot().slice(0, 5),
   };
 
   const sendAndShow = (): void => {
@@ -1382,6 +1378,18 @@ ipcMain.handle(IPC_CHANNELS.DOWNLOADS_POPOVER_OPEN_PAGE, () => {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.MENU_ACTION_RELAY, MENU_ACTIONS.OPEN_DOWNLOADS);
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.DOWNLOADS_POPOVER_RESIZE, (_event, height: unknown) => {
+  if (typeof height !== 'number' || height <= 0) return;
+  if (downloadsPopoverWindow && !downloadsPopoverWindow.isDestroyed()) {
+    const currentBounds = downloadsPopoverWindow.getBounds();
+    const newHeight = Math.min(Math.round(height), DOWNLOADS_POPOVER_HEIGHT);
+    downloadsPopoverWindow.setBounds({
+      ...currentBounds,
+      height: newHeight,
+    });
   }
 });
 
