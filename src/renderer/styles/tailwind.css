@@ -172,6 +172,24 @@
     opacity: 0.45;
   }
 
+  /* Orb logo shown in place of blank placeholder for new tabs / internal pages */
+  .tab-orb-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    transition: opacity 100ms;
+  }
+
+  .tab-orb-logo img {
+    display: block;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+  }
+
   /* Compact close: sits on top of favicon, invisible until compact+hover */
   .tab-close-cpt {
     position: absolute;
@@ -234,8 +252,9 @@
   #tabs.compact .tab { gap: 0; padding-left: 7px; padding-right: 7px; }
   #tabs.compact .tab-title  { display: none; }
   #tabs.compact .tab-close-std { display: none; }
-  #tabs.compact .tab:hover .tab-fav    { opacity: 0; }
-  #tabs.compact .tab:hover .tab-fav-ph { opacity: 0; }
+  #tabs.compact .tab:hover .tab-fav        { opacity: 0; }
+  #tabs.compact .tab:hover .tab-fav-ph     { opacity: 0; }
+  #tabs.compact .tab:hover .tab-orb-logo   { opacity: 0; }
   #tabs.compact .tab:hover .tab-close-cpt {
     opacity: 1;
     background: var(--orb-surface-2);
