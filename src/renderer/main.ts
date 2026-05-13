@@ -462,10 +462,11 @@ function renderTabs(): void {
       ? INTERNAL_ROUTE_TITLES[internalRoute]
       : (tab.title || 'New Tab');
 
+    // Real web-page tabs get the site favicon; new tabs & internal pages get the Orb logo
     const faviconUrl = !internalRoute && tab.url ? getSiteFaviconUrl(tab.url) : '';
     const iconContent = faviconUrl
-      ? `<img class="tab-fav" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
-      : `<span class="tab-fav-ph"></span>`;
+      ? `<img class="tab-fav" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.parentElement.querySelector('.tab-orb-logo')?.classList.remove('hidden')" /><span class="tab-orb-logo hidden text-orb-accent">${ICONS.orbLogo}</span>`
+      : `<span class="tab-orb-logo text-orb-accent">${ICONS.orbLogo}</span>`;
 
     tabElement.innerHTML = `
       <div class="tab-ic">
