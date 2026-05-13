@@ -129,6 +129,9 @@ let knownDownloadIds = new Set<string>();
 // Per-tab internal route – each tab keeps its own orb:// page state
 const tabInternalRoutes = new Map<number, 'history' | 'bookmarks' | 'downloads'>();
 
+// Route to bind to the next newly-activated tab (set before createTab(), consumed in applyState)
+let pendingInternalRoute: 'history' | 'bookmarks' | 'downloads' | null = null;
+
 let unsubscribeOpenUrl: (() => void) | null = null;
 let unsubscribeTabsState: (() => void) | null = null;
 let unsubscribeBookmarks: (() => void) | null = null;
@@ -439,6 +442,12 @@ function updateTabCompactMode(): void {
   tabsContainer.classList.toggle('compact', perTabPx < 72);
 }
 
+const INTERNAL_ROUTE_TITLES: Record<'history' | 'bookmarks' | 'downloads', string> = {
+  history: 'History',
+  bookmarks: 'Bookmarks',
+  downloads: 'Downloads',
+};
+
 function renderTabs(): void {
   tabsContainer.innerHTML = '';
 
@@ -447,7 +456,13 @@ function renderTabs(): void {
     tabElement.className = `tab${tab.id === state.activeTabId ? ' active' : ''}`;
     tabElement.dataset.id = String(tab.id);
 
-    const faviconUrl = tab.url ? getSiteFaviconUrl(tab.url) : '';
+    // Internal-page tabs get a friendly title instead of the BrowserView title
+    const internalRoute = tabInternalRoutes.get(tab.id);
+    const displayTitle = internalRoute
+      ? INTERNAL_ROUTE_TITLES[internalRoute]
+      : (tab.title || 'New Tab');
+
+    const faviconUrl = !internalRoute && tab.url ? getSiteFaviconUrl(tab.url) : '';
     const iconContent = faviconUrl
       ? `<img class="tab-fav" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
       : `<span class="tab-fav-ph"></span>`;
@@ -457,7 +472,7 @@ function renderTabs(): void {
         ${iconContent}
         <button class="tab-close-cpt" data-close-id="${tab.id}" title="Close tab">✕</button>
       </div>
-      <span class="tab-title">${escapeHtml(tab.title || 'New Tab')}</span>
+      <span class="tab-title">${escapeHtml(displayTitle)}</span>
       <button class="tab-close-std" data-close-id="${tab.id}" title="Close tab">✕</button>
     `;
 
@@ -748,6 +763,12 @@ function applyState(nextState: TabsStateSnapshot): void {
   state.tabs = nextState.tabs;
   state.activeTabId = nextState.activeTabId;
 
+  // Consume a pending internal route — bound to the newly active tab after createTab()
+  if (pendingInternalRoute !== null && nextState.activeTabId !== null) {
+    tabInternalRoutes.set(nextState.activeTabId, pendingInternalRoute);
+    pendingInternalRoute = null;
+  }
+
   // Restore the internal page that belongs to the newly active tab
   state.fullPageView =
     nextState.activeTabId !== null
@@ -870,10 +891,34 @@ function setFullPageView(view: 'history' | 'bookmarks' | 'downloads' | null): vo
   syncBrowserBounds();
 }
 
+// Opens an internal page in a dedicated new tab — Chrome-style.
+// If a tab with this route already exists, focus it instead of opening a duplicate.
+function openInternalPageInNewTab(view: 'history' | 'bookmarks' | 'downloads'): void {
+  // Check for an existing tab with this internal route — focus it (Chrome-like)
+  for (const [tabId, route] of tabInternalRoutes.entries()) {
+    if (route === view) {
+      activateTab(tabId);
+      return;
+    }
+  }
+
+  // No existing tab — create one and bind the route when it becomes active
+  pendingInternalRoute = view;
+  void window.orb.createTab();
+}
+
+function closeInternalPageTab(): void {
+  if (state.activeTabId !== null) {
+    tabInternalRoutes.delete(state.activeTabId);
+    requestTabClose(window.orb, state.activeTabId);
+  }
+}
+
 function navigate(input: string): void {
   const internalRoute = resolveInternalRoute(input);
   if (internalRoute) {
-    setFullPageView(internalRoute);
+    // Navigating to an orb:// URL opens it in a new tab (Chrome-style)
+    openInternalPageInNewTab(internalRoute);
     newTabSearch.value = '';
     return;
   }
@@ -934,7 +979,7 @@ function handleMenuAction(action: MenuAction): void {
       toggleHistorySidebar();
       break;
     case MENU_ACTIONS.OPEN_DOWNLOADS:
-      setFullPageView('downloads');
+      openInternalPageInNewTab('downloads');
       break;
     case MENU_ACTIONS.TOGGLE_BOOKMARK_BAR:
       toggleBookmarkBar();
@@ -989,15 +1034,20 @@ btnHistoryClose.addEventListener('click', () => {
 });
 
 btnBookmarksDetailed.addEventListener('click', () => {
-  setFullPageView('bookmarks');
+  openInternalPageInNewTab('bookmarks');
 });
 
 btnHistoryDetailed.addEventListener('click', () => {
-  setFullPageView('history');
+  openInternalPageInNewTab('history');
 });
 
 btnFullPageClose.addEventListener('click', () => {
-  setFullPageView(null);
+  // Close the dedicated internal-page tab entirely (Chrome-style)
+  if (state.fullPageView !== null) {
+    closeInternalPageTab();
+  } else {
+    setFullPageView(null);
+  }
 });
 
 btnFullPageHistoryClear.addEventListener('click', () => {
@@ -1337,7 +1387,8 @@ document.addEventListener('keydown', event => {
 
   if (event.key === 'Escape' && state.fullPageView) {
     event.preventDefault();
-    setFullPageView(null);
+    // Close the dedicated internal-page tab entirely (Chrome-style)
+    closeInternalPageTab();
     return;
   }
 
@@ -1382,7 +1433,7 @@ document.addEventListener('keydown', event => {
 
   if (mod && event.key.toLowerCase() === 'j') {
     event.preventDefault();
-    setFullPageView('downloads');
+    openInternalPageInNewTab('downloads');
     return;
   }
 
