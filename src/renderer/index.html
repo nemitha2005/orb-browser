@@ -9,7 +9,10 @@
 <body class="flex h-screen flex-col overflow-hidden bg-orb-bg text-orb-text">
   <!-- ── Tab bar ──────────────────────────────────────── -->
   <div id="tabbar" class="[-webkit-app-region:drag] flex items-end gap-1 border-b border-orb-border bg-orb-bg px-2 pt-2">
-    <div id="tabs" class="flex min-w-0 flex-1 gap-[2px] overflow-hidden"></div>
+    <!-- Scrollable tab strip: tabs scroll, + button stays pinned -->
+    <div id="tabs-scroll-region" class="relative min-w-0 flex-1 overflow-x-auto">
+      <div id="tabs" class="flex gap-[2px]"></div>
+    </div>
     <button
       id="btn-new-tab"
       title="New tab (Ctrl+T)"

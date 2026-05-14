@@ -75,6 +75,10 @@
 
   #tabbar { -webkit-app-region: drag; }
   #navbar, button, input, .tab, .tab-close { -webkit-app-region: no-drag; }
+
+  /* Hide scrollbar for tab strip */
+  #tabs-scroll-region::-webkit-scrollbar { display: none; }
+  #tabs-scroll-region { scrollbar-width: none; }
 }
 
 /* ─── Animations ──────────────────────────────────────── */

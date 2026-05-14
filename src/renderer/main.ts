@@ -56,6 +56,7 @@ const state: RendererState = {
 };
 
 const tabsContainer = document.getElementById('tabs') as HTMLDivElement;
+const tabsScrollRegion = document.getElementById('tabs-scroll-region') as HTMLDivElement;
 const bookmarkBar = document.getElementById('bookmark-bar') as HTMLDivElement;
 const bookmarkBarList = document.getElementById('bookmark-bar-list') as HTMLDivElement;
 const bookmarkBarEmpty = document.getElementById('bookmark-bar-empty') as HTMLSpanElement;
@@ -439,7 +440,7 @@ function updateTabCompactMode(): void {
     tabsContainer.classList.remove('compact');
     return;
   }
-  const perTabPx = tabsContainer.offsetWidth / state.tabs.length;
+  const perTabPx = tabsScrollRegion.offsetWidth / state.tabs.length;
   tabsContainer.classList.toggle('compact', perTabPx < 72);
 }
 
@@ -1361,7 +1362,14 @@ unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
 });
 
 unsubscribeTabsState = window.orb.onTabsStateChanged(nextState => {
+  const previousActiveId = state.activeTabId;
   applyState(nextState);
+  if (state.activeTabId !== previousActiveId && state.activeTabId !== null) {
+    const activeTabEl = tabsContainer.querySelector(`.tab[data-id="${state.activeTabId}"]`);
+    if (activeTabEl) {
+      activeTabEl.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+  }
 });
 
 unsubscribeBookmarks = window.orb.onBookmarksChanged(nextBookmarks => {
@@ -1453,7 +1461,15 @@ document.addEventListener('keydown', event => {
 
 window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
-new ResizeObserver(updateTabCompactMode).observe(tabsContainer);
+new ResizeObserver(updateTabCompactMode).observe(tabsScrollRegion);
+
+// Wheel to scroll horizontally in the tab strip
+tabsScrollRegion.addEventListener('wheel', event => {
+  if (event.deltaY !== 0) {
+    tabsScrollRegion.scrollLeft += event.deltaY;
+    event.preventDefault(); // Prevent vertical scroll on the page itself
+  }
+}, { passive: false });
 
 window.addEventListener('beforeunload', () => {
   themeMediaQuery.removeEventListener('change', onThemePreferenceChanged);
