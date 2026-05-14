@@ -438,13 +438,21 @@ function resolveInternalRoute(input: string): 'history' | 'bookmarks' | 'downloa
 
 function updateTabCompactMode(): void {
   if (state.tabs.length === 0) {
+    tabsContainer.style.setProperty('--tab-width', '180px');
     tabsContainer.classList.remove('compact');
     return;
   }
-  // Max width of tabs is the wrapper width minus the btn-new-tab width (26px) and gap (4px).
+  
+  // Available space for tabs is the wrapper width minus the new tab button and gap.
   const availableWidth = Math.max(0, tabsContainerWrapper.offsetWidth - 30);
   const perTabPx = availableWidth / state.tabs.length;
-  tabsContainer.classList.toggle('compact', perTabPx < 72);
+  
+  // Tabs try to be 180px wide. If there's not enough room, they shrink down to 72px.
+  // If they still don't fit at 72px, they stay at 72px and the container scrolls horizontally (Chrome behavior).
+  const targetWidth = Math.max(72, Math.min(180, Math.floor(perTabPx)));
+  
+  tabsContainer.style.setProperty('--tab-width', `${targetWidth}px`);
+  tabsContainer.classList.remove('compact'); // Rely entirely on width clamping
 }
 
 const INTERNAL_ROUTE_TITLES: Record<'history' | 'bookmarks' | 'downloads', string> = {

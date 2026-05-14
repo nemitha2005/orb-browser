@@ -115,9 +115,8 @@
   /* ─ IDE-style tabs ─ */
   .tab {
     @apply [-webkit-app-region:no-drag] relative flex cursor-pointer items-center rounded-t-orb border border-b-0 border-orb-border bg-orb-surface py-[5px] text-orb-text-dim;
-    flex: 1 1 0px;
-    min-width: 28px;   /* absolute floor: just favicon + padding */
-    max-width: 180px;
+    flex: 0 0 var(--tab-width, 180px);
+    width: var(--tab-width, 180px);
     overflow: hidden;
     gap: 6px;
     padding-left: 7px;
