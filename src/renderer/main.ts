@@ -56,6 +56,7 @@ const state: RendererState = {
 };
 
 const tabsContainer = document.getElementById('tabs') as HTMLDivElement;
+const tabsContainerWrapper = document.getElementById('tabs-container') as HTMLDivElement;
 const tabsScrollRegion = document.getElementById('tabs-scroll-region') as HTMLDivElement;
 const bookmarkBar = document.getElementById('bookmark-bar') as HTMLDivElement;
 const bookmarkBarList = document.getElementById('bookmark-bar-list') as HTMLDivElement;
@@ -440,7 +441,9 @@ function updateTabCompactMode(): void {
     tabsContainer.classList.remove('compact');
     return;
   }
-  const perTabPx = tabsScrollRegion.offsetWidth / state.tabs.length;
+  // Max width of tabs is the wrapper width minus the btn-new-tab width (26px) and gap (4px).
+  const availableWidth = Math.max(0, tabsContainerWrapper.offsetWidth - 30);
+  const perTabPx = availableWidth / state.tabs.length;
   tabsContainer.classList.toggle('compact', perTabPx < 72);
 }
 
@@ -1461,7 +1464,7 @@ document.addEventListener('keydown', event => {
 
 window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
-new ResizeObserver(updateTabCompactMode).observe(tabsScrollRegion);
+new ResizeObserver(updateTabCompactMode).observe(tabsContainerWrapper);
 
 // Wheel to scroll horizontally in the tab strip
 tabsScrollRegion.addEventListener('wheel', event => {

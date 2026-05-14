@@ -8,16 +8,19 @@
 </head>
 <body class="flex h-screen flex-col overflow-hidden bg-orb-bg text-orb-text">
   <!-- ── Tab bar ──────────────────────────────────────── -->
-  <div id="tabbar" class="[-webkit-app-region:drag] flex items-end gap-1 border-b border-orb-border bg-orb-bg px-2 pt-2">
-    <!-- Scrollable tab strip: tabs scroll, + button stays pinned -->
-    <div id="tabs-scroll-region" class="relative min-w-0 flex-1 overflow-x-auto">
-      <div id="tabs" class="flex gap-[2px]"></div>
+  <div id="tabbar" class="[-webkit-app-region:drag] flex items-end border-b border-orb-border bg-orb-bg px-2 pt-2">
+    <!-- Wrapper to allow tabs and new tab button to sit together -->
+    <div id="tabs-container" class="flex flex-1 min-w-0 items-end gap-1">
+      <!-- Scrollable tab strip: tabs scroll, + button stays pinned -->
+      <div id="tabs-scroll-region" class="relative min-w-0 overflow-x-auto">
+        <div id="tabs" class="flex gap-[2px]"></div>
+      </div>
+      <button
+        id="btn-new-tab"
+        title="New tab (Ctrl+T)"
+        class="[-webkit-app-region:no-drag] mb-[1px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-accent"
+      ></button>
     </div>
-    <button
-      id="btn-new-tab"
-      title="New tab (Ctrl+T)"
-      class="[-webkit-app-region:no-drag] mb-[1px] flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-orb border border-orb-border bg-orb-surface text-orb-text-dim transition hover:border-orb-border-hi hover:bg-orb-surface-2 hover:text-orb-accent"
-    ></button>
   </div>
 
   <!-- ── Nav bar ──────────────────────────────────────── -->
