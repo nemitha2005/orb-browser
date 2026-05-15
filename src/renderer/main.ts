@@ -1,4 +1,5 @@
 import './styles/tailwind.css';
+import orbLogoUrl from './assets/orb-logo.svg?url';
 import type {
   BookmarkSnapshot,
   BrowserBounds,
@@ -55,6 +56,8 @@ const state: RendererState = {
 };
 
 const tabsContainer = document.getElementById('tabs') as HTMLDivElement;
+const tabsContainerWrapper = document.getElementById('tabs-container') as HTMLDivElement;
+const tabsScrollRegion = document.getElementById('tabs-scroll-region') as HTMLDivElement;
 const bookmarkBar = document.getElementById('bookmark-bar') as HTMLDivElement;
 const bookmarkBarList = document.getElementById('bookmark-bar-list') as HTMLDivElement;
 const bookmarkBarEmpty = document.getElementById('bookmark-bar-empty') as HTMLSpanElement;
@@ -435,11 +438,21 @@ function resolveInternalRoute(input: string): 'history' | 'bookmarks' | 'downloa
 
 function updateTabCompactMode(): void {
   if (state.tabs.length === 0) {
+    tabsContainer.style.setProperty('--tab-width', '180px');
     tabsContainer.classList.remove('compact');
     return;
   }
-  const perTabPx = tabsContainer.offsetWidth / state.tabs.length;
-  tabsContainer.classList.toggle('compact', perTabPx < 72);
+  
+  // Available space for tabs is the wrapper width minus the new tab button and gap.
+  const availableWidth = Math.max(0, tabsContainerWrapper.offsetWidth - 30);
+  const perTabPx = availableWidth / state.tabs.length;
+  
+  // Tabs try to be 180px wide. If there's not enough room, they shrink down to 72px.
+  // If they still don't fit at 72px, they stay at 72px and the container scrolls horizontally (Chrome behavior).
+  const targetWidth = Math.max(72, Math.min(180, Math.floor(perTabPx)));
+  
+  tabsContainer.style.setProperty('--tab-width', `${targetWidth}px`);
+  tabsContainer.classList.remove('compact'); // Rely entirely on width clamping
 }
 
 const INTERNAL_ROUTE_TITLES: Record<'history' | 'bookmarks' | 'downloads', string> = {
@@ -462,10 +475,11 @@ function renderTabs(): void {
       ? INTERNAL_ROUTE_TITLES[internalRoute]
       : (tab.title || 'New Tab');
 
+    // Real web-page tabs get the site favicon; new tabs & internal pages get the Orb logo
     const faviconUrl = !internalRoute && tab.url ? getSiteFaviconUrl(tab.url) : '';
     const iconContent = faviconUrl
-      ? `<img class="tab-fav" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" />`
-      : `<span class="tab-fav-ph"></span>`;
+      ? `<img class="tab-fav" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentElement.querySelector('.tab-orb-logo')?.classList.remove('hidden')" /><span class="tab-orb-logo hidden"><img src="${orbLogoUrl}" alt="Orb" /></span>`
+      : `<span class="tab-orb-logo"><img src="${orbLogoUrl}" alt="Orb" /></span>`;
 
     tabElement.innerHTML = `
       <div class="tab-ic">
@@ -1359,7 +1373,14 @@ unsubscribeOpenUrl = window.orb.onOpenUrl(url => {
 });
 
 unsubscribeTabsState = window.orb.onTabsStateChanged(nextState => {
+  const previousActiveId = state.activeTabId;
   applyState(nextState);
+  if (state.activeTabId !== previousActiveId && state.activeTabId !== null) {
+    const activeTabEl = tabsContainer.querySelector(`.tab[data-id="${state.activeTabId}"]`);
+    if (activeTabEl) {
+      activeTabEl.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+  }
 });
 
 unsubscribeBookmarks = window.orb.onBookmarksChanged(nextBookmarks => {
@@ -1451,7 +1472,15 @@ document.addEventListener('keydown', event => {
 
 window.addEventListener('resize', syncBrowserBounds);
 new ResizeObserver(syncBrowserBounds).observe(browserArea);
-new ResizeObserver(updateTabCompactMode).observe(tabsContainer);
+new ResizeObserver(updateTabCompactMode).observe(tabsContainerWrapper);
+
+// Wheel to scroll horizontally in the tab strip
+tabsScrollRegion.addEventListener('wheel', event => {
+  if (event.deltaY !== 0) {
+    tabsScrollRegion.scrollLeft += event.deltaY;
+    event.preventDefault(); // Prevent vertical scroll on the page itself
+  }
+}, { passive: false });
 
 window.addEventListener('beforeunload', () => {
   themeMediaQuery.removeEventListener('change', onThemePreferenceChanged);

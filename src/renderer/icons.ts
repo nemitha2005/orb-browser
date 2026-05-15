@@ -60,4 +60,11 @@ export const ICONS = {
   floatSearch: svg('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>', 14),
   check: svg('<polyline points="20 6 9 17 4 12"/>', 14),
   stop: svgFilled('<rect x="6" y="6" width="12" height="12" rx="1.5"/>'),
+  orbLogo: svgFilled(
+    // Geometric orb: outer circle + inner highlight ellipse + equator ring
+    '<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+    '<ellipse cx="12" cy="12" rx="5" ry="10" fill="none" stroke="currentColor" stroke-width="1"/>' +
+    '<ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="currentColor" stroke-width="1"/>' +
+    '<circle cx="9" cy="8" r="1.5" fill="currentColor" opacity="0.6"/>',
+  ),
 } as const;

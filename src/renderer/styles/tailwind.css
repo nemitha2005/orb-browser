@@ -75,6 +75,10 @@
 
   #tabbar { -webkit-app-region: drag; }
   #navbar, button, input, .tab, .tab-close { -webkit-app-region: no-drag; }
+
+  /* Hide scrollbar for tab strip */
+  #tabs-scroll-region::-webkit-scrollbar { display: none; }
+  #tabs-scroll-region { scrollbar-width: none; }
 }
 
 /* ─── Animations ──────────────────────────────────────── */
@@ -111,9 +115,8 @@
   /* ─ IDE-style tabs ─ */
   .tab {
     @apply [-webkit-app-region:no-drag] relative flex cursor-pointer items-center rounded-t-orb border border-b-0 border-orb-border bg-orb-surface py-[5px] text-orb-text-dim;
-    flex: 1 1 0px;
-    min-width: 28px;   /* absolute floor: just favicon + padding */
-    max-width: 180px;
+    flex: 0 0 var(--tab-width, 180px);
+    width: var(--tab-width, 180px);
     overflow: hidden;
     gap: 6px;
     padding-left: 7px;
@@ -170,6 +173,24 @@
     border-radius: 2px;
     background: var(--orb-border);
     opacity: 0.45;
+  }
+
+  /* Orb logo shown in place of blank placeholder for new tabs / internal pages */
+  .tab-orb-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    transition: opacity 100ms;
+  }
+
+  .tab-orb-logo img {
+    display: block;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
   }
 
   /* Compact close: sits on top of favicon, invisible until compact+hover */
@@ -234,8 +255,9 @@
   #tabs.compact .tab { gap: 0; padding-left: 7px; padding-right: 7px; }
   #tabs.compact .tab-title  { display: none; }
   #tabs.compact .tab-close-std { display: none; }
-  #tabs.compact .tab:hover .tab-fav    { opacity: 0; }
-  #tabs.compact .tab:hover .tab-fav-ph { opacity: 0; }
+  #tabs.compact .tab:hover .tab-fav        { opacity: 0; }
+  #tabs.compact .tab:hover .tab-fav-ph     { opacity: 0; }
+  #tabs.compact .tab:hover .tab-orb-logo   { opacity: 0; }
   #tabs.compact .tab:hover .tab-close-cpt {
     opacity: 1;
     background: var(--orb-surface-2);
